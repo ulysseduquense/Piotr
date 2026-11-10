@@ -2,71 +2,124 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Piotr – Petits travaux</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Piotr</title>
+<meta name="description" content="Piotr – petits travaux : réservation de créneaux, suivi des heures et des achats.">
+<meta name="theme-color" content="#fbfbfa">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/fr.global.min.js"></script>
 </head>
 <body>
-<header>
-  <h1>🛠️ Piotr – Petits travaux</h1>
-  <nav id="nav" hidden>
-    <button data-view="calendar">Calendrier</button>
-    <button data-view="bookings">Mes demandes</button>
-    <button data-view="admin" class="admin-only">Gestion</button>
-    <span id="who"></span>
-    <button id="logout" class="secondary">Déconnexion</button>
-  </nav>
+<header class="topbar" id="topbar" hidden>
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Piotr – accueil"><img src="logo.svg" alt="Piotr" width="62" height="26"></a>
+    <nav class="tabs" id="nav" aria-label="Navigation principale">
+      <button type="button" data-view="calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+        <span>Calendrier</span>
+      </button>
+      <button type="button" data-view="bookings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9"/></svg>
+        <span>Demandes</span>
+      </button>
+      <button type="button" data-view="admin" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h9M18 8h2M4 16h4M13 16h7"/><circle cx="15.5" cy="8" r="2.2"/><circle cx="10.5" cy="16" r="2.2"/></svg>
+        <span>Gestion</span>
+      </button>
+    </nav>
+    <div class="user"><span id="who"></span><button type="button" class="link" id="logout">Déconnexion</button></div>
+  </div>
 </header>
-<main>
-  <section id="auth" hidden>
-    <div class="card narrow">
-      <h2 id="authTitle">Connexion</h2>
+
+<main class="wrap">
+  <section id="auth" class="auth" hidden>
+    <img class="auth-logo" src="logo.svg" alt="Piotr" width="104" height="44">
+    <div class="auth-card">
+      <h1 id="authTitle">Connexion</h1>
       <form id="authForm">
-        <label class="reg">Nom <input name="name"></label>
-        <label class="reg">Téléphone <input name="phone"></label>
-        <label>E-mail <input name="email" type="email" required></label>
-        <label>Mot de passe <input name="password" type="password" required minlength="6"></label>
-        <button type="submit" id="authSubmit">Se connecter</button>
-        <p class="error" id="authError"></p>
+        <label class="field reg" hidden>Nom<input name="name" autocomplete="name"></label>
+        <label class="field reg" hidden>Téléphone<input name="phone" type="tel" autocomplete="tel"></label>
+        <label class="field">E-mail<input name="email" type="email" autocomplete="email" required></label>
+        <label class="field">Mot de passe<input name="password" type="password" autocomplete="current-password" required minlength="6"></label>
+        <p class="error" id="authError" role="alert"></p>
+        <button class="btn primary" id="authSubmit">Se connecter</button>
       </form>
-      <p><a href="#" id="authToggle">Pas encore de compte ? Créer un compte</a></p>
+      <p class="auth-switch"><span id="authQuestion">Pas encore de compte ?</span> <button type="button" id="authToggle">Créer un compte</button></p>
     </div>
   </section>
 
   <section id="calendar" hidden>
-    <p class="hint" id="calHint"></p>
-    <div class="legend">
-      <span class="dot unavailable"></span>Indisponible
-      <span class="dot busy"></span>Occupé
-      <span class="dot pending"></span>En attente
-      <span class="dot confirmed"></span>Confirmé
+    <div class="view-head">
+      <div><h1>Calendrier</h1><p class="hint" id="calHint"></p></div>
+      <button type="button" class="btn primary" id="newBtn">Demander un créneau</button>
     </div>
-    <div class="card"><div id="cal"></div></div>
+    <div class="legend" aria-label="Légende">
+      <span class="chip unavailable"><i></i>Indisponible</span>
+      <span class="chip busy"><i></i>Occupé</span>
+      <span class="chip pending"><i></i>En attente</span>
+      <span class="chip confirmed"><i></i>Confirmé</span>
+      <span class="chip done"><i></i>Terminé</span>
+    </div>
+    <div class="cal-card">
+      <div class="cal-bar">
+        <div class="cal-nav">
+          <button type="button" class="icon-btn" id="calPrev" aria-label="Période précédente">‹</button>
+          <button type="button" class="icon-btn" id="calNext" aria-label="Période suivante">›</button>
+          <button type="button" class="btn ghost sm" id="calToday">Aujourd’hui</button>
+        </div>
+        <h2 class="cal-title" id="calTitle" aria-live="polite"></h2>
+        <div class="seg" id="calViews" role="group" aria-label="Affichage">
+          <button type="button" data-cal-view="timeGridWeek">Semaine</button>
+          <button type="button" data-cal-view="timeGridDay">Jour</button>
+          <button type="button" data-cal-view="dayGridMonth">Mois</button>
+          <button type="button" data-cal-view="listWeek">Liste</button>
+        </div>
+      </div>
+      <div id="cal"></div>
+    </div>
   </section>
 
   <section id="bookings" hidden>
+    <div class="view-head">
+      <div><h1 id="bookingsTitle">Mes demandes</h1><p class="hint" id="bookingsHint"></p></div>
+    </div>
     <div id="bookingList"></div>
   </section>
 
   <section id="admin" hidden>
-    <div class="card">
-      <h2>Tarif horaire par défaut</h2>
-      <form id="rateForm" class="row">
-        <input name="default_rate" type="number" step="0.01" min="0"> € / h
-        <button>Enregistrer</button>
+    <div class="view-head"><div><h1>Gestion</h1></div></div>
+    <div class="panel">
+      <h3>Tarif horaire par défaut</h3>
+      <form id="rateForm" class="inline">
+        <label class="field" style="flex:0 1 180px">Tarif
+          <span class="suffix-wrap"><input name="default_rate" type="number" step="0.01" min="0" inputmode="decimal" required><span class="suffix">€ / h</span></span>
+        </label>
+        <button class="btn">Enregistrer</button>
       </form>
       <p class="hint">Appliqué aux nouvelles demandes. Modifiable ensuite pour chaque intervention.</p>
     </div>
-    <div class="card">
-      <h2>Clients</h2>
+    <div class="panel">
+      <h3>Clients</h3>
       <div id="clientList"></div>
     </div>
   </section>
 </main>
 
-<dialog id="dlg"><div id="dlgBody"></div></dialog>
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="dlg-head">
+    <h2 id="dlgTitle"></h2>
+    <span id="dlgPill"></span>
+    <button type="button" class="icon-btn dlg-close" id="dlgClose" aria-label="Fermer">×</button>
+  </div>
+  <div class="dlg-body" id="dlgBody"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
 </html>

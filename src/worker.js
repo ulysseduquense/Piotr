@@ -71,10 +71,19 @@ app.post('/api/register', async c => {
   if (await db.prepare('SELECT 1 FROM users WHERE email=?').bind(normEmail).first())
     return c.json({ error: 'Cet e-mail est déjà utilisé' }, 409);
   const adminEmail = (c.env.ADMIN_EMAIL || '').toLowerCase();
-  const isFirst = (await db.prepare('SELECT COUNT(*) c FROM users').first('c')) === 0;
-  const role = (adminEmail ? normEmail === adminEmail : isFirst) ? 'admin' : 'client';
-  const r = await db.prepare('INSERT INTO users(email,name,phone,password_hash,role) VALUES(?,?,?,?,?)')
-    .bind(normEmail, String(name).trim(), String(phone).trim(), await hashPassword(password), role).run();
+  // Rôle : ADMIN_EMAIL s'il est défini, sinon le tout premier inscrit. Dans ce second cas, le test « table vide »
+  // est fait dans l'INSERT lui-même (une seule instruction, donc atomique) : deux inscriptions simultanées,
+  // éventuellement traitées par deux isolates, ne peuvent pas être toutes deux admin.
+  const role = adminEmail ? (normEmail === adminEmail ? 'admin' : 'client') : null;
+  let r;
+  try {
+    r = await db.prepare(`INSERT INTO users(email,name,phone,password_hash,role)
+      VALUES(?,?,?,?, COALESCE(?, CASE WHEN EXISTS (SELECT 1 FROM users) THEN 'client' ELSE 'admin' END))`)
+      .bind(normEmail, String(name).trim(), String(phone ?? '').trim(), await hashPassword(password), role).run();
+  } catch (err) { // deux inscriptions simultanées avec le même e-mail : la contrainte UNIQUE tranche
+    if (/UNIQUE constraint failed: users\.email/.test(String(err?.message))) return c.json({ error: 'Cet e-mail est déjà utilisé' }, 409);
+    throw err;
+  }
   await startSession(c, r.meta.last_row_id);
   return c.json({ ok: true });
 });
@@ -113,14 +122,15 @@ app.get('/api/calendar', auth, async c => {
   return c.json(events);
 });
 
-async function overlaps(db, start, end, excludeBookingId = 0) {
-  const [u, b] = await db.batch([
-    db.prepare('SELECT 1 FROM unavailabilities WHERE start < ? AND end > ?').bind(end, start),
-    db.prepare(`SELECT 1 FROM bookings WHERE status IN ('pending','confirmed') AND id<>? AND start < ? AND end > ?`)
-      .bind(excludeBookingId, end, start),
-  ]);
-  return u.results.length > 0 || b.results.length > 0;
-}
+// Insertion conditionnelle d'une réservation : le contrôle de chevauchement et l'insertion forment UNE seule
+// instruction SQL (atomique). Un contrôle séparé laisserait deux demandes simultanées sur le même créneau passer
+// toutes les deux. Chevauchement = start < fin ET end > début (les créneaux qui se touchent sont permis) ;
+// seules les réservations pending/confirmed bloquent (annulées, refusées et terminées libèrent le créneau).
+// Paramètres : 1 client_id, 2 start, 3 end, 4 description, 5 address, 6 hourly_rate.
+const INSERT_BOOKING_SQL = `INSERT INTO bookings(client_id,start,end,description,address,hourly_rate)
+  SELECT ?1,?2,?3,?4,?5,?6
+  WHERE NOT EXISTS (SELECT 1 FROM unavailabilities WHERE start < ?3 AND end > ?2)
+    AND NOT EXISTS (SELECT 1 FROM bookings WHERE status IN ('pending','confirmed') AND start < ?3 AND end > ?2)`;
 
 // --- Réservations ----------------------------------------------------------
 const BOOKING_SQL = `SELECT b.*, u.name client_name, u.email client_email, u.phone client_phone
@@ -168,9 +178,9 @@ app.post('/api/bookings', auth, async c => {
   if (Date.parse(start) < Date.now() && user.role !== 'admin')
     return c.json({ error: 'Impossible de réserver dans le passé' }, 400);
   const s = toUTC(start), e = toUTC(end);
-  if (await overlaps(db, s, e)) return c.json({ error: 'Ce créneau n’est pas disponible' }, 409);
-  const r = await db.prepare('INSERT INTO bookings(client_id,start,end,description,address,hourly_rate) VALUES(?,?,?,?,?,?)')
+  const r = await db.prepare(INSERT_BOOKING_SQL)
     .bind(user.id, s, e, description, address, Number(await getSetting(db, 'default_rate', 25))).run();
+  if (!r.meta.changes) return c.json({ error: 'Ce créneau n’est pas disponible' }, 409);
   return c.json(await bookingDetail(db, r.meta.last_row_id));
 });
 // Le client peut annuler sa demande ; l'admin peut tout modifier.
@@ -185,8 +195,11 @@ app.patch('/api/bookings/:id', auth, async c => {
     return c.json(await bookingDetail(db, b.id));
   }
   const allowed = ['pending', 'confirmed', 'rejected', 'cancelled', 'done'];
-  if (body.status && !allowed.includes(body.status)) return c.json({ error: 'Statut invalide' }, 400);
+  // `!= null` (et non une simple vérité) : un statut '' ou false serait sinon enregistré tel quel.
+  if (body.status != null && !allowed.includes(body.status)) return c.json({ error: 'Statut invalide' }, 400);
+  if ((body.start && !isISO(body.start)) || (body.end && !isISO(body.end))) return c.json({ error: 'Créneau invalide' }, 400);
   const start = body.start ? toUTC(body.start) : b.start, end = body.end ? toUTC(body.end) : b.end;
+  if ((body.start || body.end) && Date.parse(end) <= Date.parse(start)) return c.json({ error: 'Créneau invalide' }, 400);
   await db.prepare('UPDATE bookings SET status=?, hourly_rate=?, admin_note=?, start=?, end=?, description=?, address=? WHERE id=?')
     .bind(body.status ?? b.status, body.hourly_rate !== undefined ? num(body.hourly_rate) : b.hourly_rate,
       body.admin_note ?? b.admin_note, start, end, body.description ?? b.description, body.address ?? b.address, b.id).run();
