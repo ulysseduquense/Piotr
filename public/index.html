@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Piotr</title>
-<meta name="description" content="Piotr – petits travaux : réservation de créneaux, suivi des heures et des achats.">
+<meta name="description" content="" data-i18n-attr="content:app.description">
 <meta name="theme-color" content="#fbfbfa">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,71 +13,77 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/fr.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/pl.global.min.js"></script>
 </head>
 <body>
 <header class="topbar" id="topbar" hidden>
   <div class="wrap">
-    <a class="brand" href="./" aria-label="Piotr – accueil"><img src="logo.svg" alt="Piotr" width="62" height="26"></a>
-    <nav class="tabs" id="nav" aria-label="Navigation principale">
+    <a class="brand" href="./" data-i18n-attr="aria-label:nav.home"><img src="logo.svg" alt="Piotr" width="62" height="26"></a>
+    <nav class="tabs" id="nav" data-i18n-attr="aria-label:nav.main">
       <button type="button" data-view="calendar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-        <span>Calendrier</span>
+        <span data-i18n="nav.calendar"></span>
       </button>
       <button type="button" data-view="bookings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9"/></svg>
-        <span>Demandes</span>
+        <span id="navBookings" data-i18n="nav.bookings.client"></span>
       </button>
       <button type="button" data-view="admin" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h9M18 8h2M4 16h4M13 16h7"/><circle cx="15.5" cy="8" r="2.2"/><circle cx="10.5" cy="16" r="2.2"/></svg>
-        <span>Gestion</span>
+        <span data-i18n="nav.admin"></span>
       </button>
     </nav>
-    <div class="user"><span id="who"></span><button type="button" class="link" id="logout">Déconnexion</button></div>
+    <div class="user">
+      <div class="lang" id="langTop" role="group"></div>
+      <span id="who"></span>
+      <button type="button" class="link" id="logout" data-i18n="nav.logout"></button>
+    </div>
   </div>
 </header>
 
 <main class="wrap">
   <section id="auth" class="auth" hidden>
+    <div class="lang auth-lang" id="langAuth" role="group"></div>
     <img class="auth-logo" src="logo.svg" alt="Piotr" width="104" height="44">
     <div class="auth-card">
-      <h1 id="authTitle">Connexion</h1>
+      <h1 id="authTitle" data-i18n="auth.login.title"></h1>
       <form id="authForm">
-        <label class="field reg" hidden>Nom<input name="name" autocomplete="name"></label>
-        <label class="field reg" hidden>Téléphone<input name="phone" type="tel" autocomplete="tel"></label>
-        <label class="field">E-mail<input name="email" type="email" autocomplete="email" required></label>
-        <label class="field">Mot de passe<input name="password" type="password" autocomplete="current-password" required minlength="6"></label>
+        <label class="field reg" hidden><span data-i18n="auth.name"></span><input name="name" autocomplete="name"></label>
+        <label class="field reg" hidden><span data-i18n="auth.phone"></span><input name="phone" type="tel" autocomplete="tel"></label>
+        <label class="field"><span data-i18n="auth.email"></span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="field"><span data-i18n="auth.password"></span><input name="password" type="password" autocomplete="current-password" required minlength="6"></label>
         <p class="error" id="authError" role="alert"></p>
-        <button class="btn primary" id="authSubmit">Se connecter</button>
+        <button class="btn primary" id="authSubmit" data-i18n="auth.login.submit"></button>
       </form>
-      <p class="auth-switch"><span id="authQuestion">Pas encore de compte ?</span> <button type="button" id="authToggle">Créer un compte</button></p>
+      <p class="auth-switch"><span id="authQuestion" data-i18n="auth.login.question"></span> <button type="button" id="authToggle" data-i18n="auth.login.switch"></button></p>
     </div>
   </section>
 
   <section id="calendar" hidden>
     <div class="view-head">
-      <div><h1>Calendrier</h1><p class="hint" id="calHint"></p></div>
-      <button type="button" class="btn primary" id="newBtn">Demander un créneau</button>
+      <div><h1 data-i18n="cal.title"></h1><p class="hint" id="calHint" data-i18n="cal.hint.client"></p></div>
+      <button type="button" class="btn primary" id="newBtn" data-i18n="cal.new.client"></button>
     </div>
-    <div class="legend" aria-label="Légende">
-      <span class="chip unavailable"><i></i>Indisponible</span>
-      <span class="chip busy"><i></i>Occupé</span>
-      <span class="chip pending"><i></i>En attente</span>
-      <span class="chip confirmed"><i></i>Confirmé</span>
-      <span class="chip done"><i></i>Terminé</span>
+    <div class="legend" data-i18n-attr="aria-label:legend.label">
+      <span class="chip unavailable"><i></i><span data-i18n="legend.unavailable"></span></span>
+      <span class="chip busy"><i></i><span data-i18n="legend.busy"></span></span>
+      <span class="chip pending"><i></i><span data-i18n="legend.pending"></span></span>
+      <span class="chip confirmed"><i></i><span data-i18n="legend.confirmed"></span></span>
+      <span class="chip done"><i></i><span data-i18n="legend.done"></span></span>
     </div>
     <div class="cal-card">
       <div class="cal-bar">
         <div class="cal-nav">
-          <button type="button" class="icon-btn" id="calPrev" aria-label="Période précédente">‹</button>
-          <button type="button" class="icon-btn" id="calNext" aria-label="Période suivante">›</button>
-          <button type="button" class="btn ghost sm" id="calToday">Aujourd’hui</button>
+          <button type="button" class="icon-btn" id="calPrev" data-i18n-attr="aria-label:cal.prev">‹</button>
+          <button type="button" class="icon-btn" id="calNext" data-i18n-attr="aria-label:cal.next">›</button>
+          <button type="button" class="btn ghost sm" id="calToday" data-i18n="cal.today"></button>
         </div>
         <h2 class="cal-title" id="calTitle" aria-live="polite"></h2>
-        <div class="seg" id="calViews" role="group" aria-label="Affichage">
-          <button type="button" data-cal-view="timeGridWeek">Semaine</button>
-          <button type="button" data-cal-view="timeGridDay">Jour</button>
-          <button type="button" data-cal-view="dayGridMonth">Mois</button>
-          <button type="button" data-cal-view="listWeek">Liste</button>
+        <div class="seg" id="calViews" role="group" data-i18n-attr="aria-label:cal.views">
+          <button type="button" data-cal-view="timeGridWeek" data-i18n="cal.view.week"></button>
+          <button type="button" data-cal-view="timeGridDay" data-i18n="cal.view.day"></button>
+          <button type="button" data-cal-view="dayGridMonth" data-i18n="cal.view.month"></button>
+          <button type="button" data-cal-view="listWeek" data-i18n="cal.view.list"></button>
         </div>
       </div>
       <div id="cal"></div>
@@ -86,25 +92,25 @@
 
   <section id="bookings" hidden>
     <div class="view-head">
-      <div><h1 id="bookingsTitle">Mes demandes</h1><p class="hint" id="bookingsHint"></p></div>
+      <div><h1 id="bookingsTitle" data-i18n="booking.list.title.client"></h1><p class="hint" id="bookingsHint" data-i18n="booking.list.hint.client"></p></div>
     </div>
     <div id="bookingList"></div>
   </section>
 
   <section id="admin" hidden>
-    <div class="view-head"><div><h1>Gestion</h1></div></div>
+    <div class="view-head"><div><h1 data-i18n="admin.title"></h1></div></div>
     <div class="panel">
-      <h3>Tarif horaire par défaut</h3>
+      <h3 data-i18n="admin.rate.title"></h3>
       <form id="rateForm" class="inline">
-        <label class="field" style="flex:0 1 180px">Tarif
-          <span class="suffix-wrap"><input name="default_rate" type="number" step="0.01" min="0" inputmode="decimal" required><span class="suffix">€ / h</span></span>
+        <label class="field" style="flex:0 1 180px"><span data-i18n="admin.rate.label"></span>
+          <span class="suffix-wrap"><input name="default_rate" type="number" step="0.01" min="0" inputmode="decimal" required><span class="suffix" data-i18n="form.per_hour_suffix"></span></span>
         </label>
-        <button class="btn">Enregistrer</button>
+        <button class="btn" data-i18n="admin.rate.save"></button>
       </form>
-      <p class="hint">Appliqué aux nouvelles demandes. Modifiable ensuite pour chaque intervention.</p>
+      <p class="hint" data-i18n="admin.rate.hint"></p>
     </div>
     <div class="panel">
-      <h3>Clients</h3>
+      <h3 data-i18n="admin.clients.title"></h3>
       <div id="clientList"></div>
     </div>
   </section>
@@ -114,12 +120,31 @@
   <div class="dlg-head">
     <h2 id="dlgTitle"></h2>
     <span id="dlgPill"></span>
-    <button type="button" class="icon-btn dlg-close" id="dlgClose" aria-label="Fermer">×</button>
+    <button type="button" class="icon-btn dlg-close" id="dlgClose" data-i18n-attr="aria-label:form.close">×</button>
   </div>
   <div class="dlg-body" id="dlgBody"></div>
 </dialog>
 
+<!-- Visionneuse de photos : s'ouvre par-dessus la fiche d'intervention -->
+<dialog id="lb" class="lb" data-i18n-attr="aria-label:photos.lightbox">
+  <div class="lb-top">
+    <span class="lb-count" id="lbCount" aria-live="polite"></span>
+    <button type="button" class="icon-btn lb-close" id="lbClose" data-i18n-attr="aria-label:form.close">×</button>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <button type="button" class="lb-nav prev" id="lbPrev" data-i18n-attr="aria-label:photos.prev">‹</button>
+    <img id="lbImg" alt="" decoding="async">
+    <button type="button" class="lb-nav next" id="lbNext" data-i18n-attr="aria-label:photos.next">›</button>
+  </div>
+  <div class="lb-foot">
+    <div class="lb-info"><p class="lb-caption" id="lbCaption"></p><p class="lb-meta" id="lbMeta"></p></div>
+    <div class="lb-actions" id="lbActions"></div>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="i18n/fr.js"></script>
+<script src="i18n/pl.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

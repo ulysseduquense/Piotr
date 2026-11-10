@@ -65,8 +65,18 @@ img { max-width: 100%; }
 #who { font-weight: 500; }
 .link { color: var(--muted); font-size: 0.85rem; }
 
+/* ---------- Sélecteur de langue (FR | PL) : discret, sans cadre ---------- */
+.lang { display: inline-flex; align-items: center; gap: 2px; }
+.lang button {
+  min-width: 34px; min-height: 30px; padding: 0 7px; border-radius: 6px;
+  font-size: 0.78rem; font-weight: 500; letter-spacing: 0.04em; color: var(--muted);
+}
+.lang button[aria-pressed="true"] { color: var(--ink); background: var(--soft); }
+.lang i { width: 1px; height: 14px; background: var(--line); }
+.auth-lang { position: absolute; top: 14px; right: 16px; } /* coin supérieur droit de l'écran de connexion */
+
 /* main.wrap : plus spécifique que .wrap (padding: 0 16px), sinon ces marges sont écrasées. */
-main.wrap { padding-top: 28px; padding-bottom: 56px; }
+main.wrap { position: relative; padding-top: 28px; padding-bottom: 56px; }
 
 /* ---------- En-tête de vue ---------- */
 .view-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -263,6 +273,61 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
 .footer > .btn.ghost:first-child { margin-left: -16px; } /* texte aligné sur le bord du contenu */
 .dlg-body .error { margin-top: 14px; }
 
+/* ---------- Photos (fiche d'intervention) ---------- */
+.photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px 8px; }
+.photo { margin: 0; min-width: 0; }
+.photo-btn { position: relative; display: block; width: 100%; aspect-ratio: 1; border-radius: var(--radius); overflow: hidden; background: var(--soft); }
+.photo-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-btn::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(20, 20, 20, .09); border-radius: inherit; pointer-events: none; } /* bord discret : un ticket blanc reste délimité */
+.photo figcaption, .photo-tag { font-size: 0.74rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.photo figcaption { margin-top: 6px; }
+.photo-tag { display: block; margin-top: 2px; color: var(--muted); }
+.photo figcaption + .photo-tag { margin-top: 1px; }
+.photos-add { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); display: grid; gap: 10px; }
+.photos-add .actions > .btn.ghost { margin-left: -16px; } /* icône et texte alignés sur le bord du contenu */
+.photos-add .btn svg { width: 14px; height: 14px; }
+.photos-add .hint:empty { display: none; }
+/* justificatifs d'un achat : badge compteur (ouvre la visionneuse) et trombone (ajoute un justificatif) */
+.rcount {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 7px 1px 5px;
+  border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
+  font-size: 0.72rem; font-weight: 500; line-height: 1.5; vertical-align: 1px; font-variant-numeric: tabular-nums;
+}
+.rcount svg { width: 11px; height: 11px; }
+.clip svg { width: 15px; height: 15px; }
+.row-actions { display: inline-flex; align-items: center; gap: 2px; margin-right: -4px; }
+.row-actions .x { margin: -6px 0; }
+
+/* ---------- Visionneuse de photos ---------- */
+.lb {
+  width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: var(--ink); color: var(--paper);
+}
+.lb[open] { display: flex; flex-direction: column; }
+.lb::backdrop { background: rgba(20, 20, 20, .6); }
+.lb-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 20px; flex: none; }
+.lb-count { font-size: 0.82rem; color: rgba(251, 251, 250, .7); font-variant-numeric: tabular-nums; }
+.lb .icon-btn { color: rgba(251, 251, 250, .75); width: 44px; height: 44px; }
+.lb-stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 64px; touch-action: pan-y; }
+.lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; border-radius: 4px; user-select: none; -webkit-user-drag: none; }
+.lb-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+  color: rgba(251, 251, 250, .85); background: rgba(251, 251, 250, .1); font-size: 1.5rem; line-height: 1;
+}
+.lb-nav.prev { left: 12px; }
+.lb-nav.next { right: 12px; }
+.lb-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; padding: 14px 20px calc(16px + env(safe-area-inset-bottom)); flex: none; }
+.lb-info { flex: 1 1 240px; min-width: 0; }
+.lb-caption { font-size: 0.95rem; overflow-wrap: anywhere; }
+.lb-caption:empty { display: none; }
+.lb-meta { color: rgba(251, 251, 250, .65); font-size: 0.82rem; }
+.lb-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lb-actions .hint { color: rgba(251, 251, 250, .7); }
+.lb .btn { background: transparent; border-color: rgba(251, 251, 250, .28); color: var(--paper); text-decoration: none; }
+.lb .btn.ghost { border-color: transparent; color: rgba(251, 251, 250, .75); }
+.lb :focus-visible { outline-color: var(--paper); }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; left: 50%; bottom: 24px; z-index: 100;
@@ -281,6 +346,7 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
 @media (hover: hover) {
   .tabs button:hover { color: var(--ink); }
   .link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .lang button:hover { color: var(--ink); }
   .btn:hover { background: var(--soft); border-color: #d8d8d3; }
   .btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
   .btn.ghost:hover { background: var(--soft); color: var(--ink); }
@@ -289,6 +355,11 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   .seg button:hover { color: var(--ink); }
   .item:hover { background: var(--paper); }
   .clients a:hover { color: var(--ink); text-decoration: underline; }
+  .rcount:hover { color: var(--ink); border-color: #d8d8d3; background: var(--soft); }
+  .photo-btn:hover img { opacity: .9; }
+  .lb .icon-btn:hover, .lb-nav:hover { color: var(--paper); background: rgba(251, 251, 250, .18); }
+  .lb .btn:hover { background: rgba(251, 251, 250, .1); border-color: rgba(251, 251, 250, .45); }
+  .lb .btn.ghost:hover { border-color: transparent; color: var(--paper); }
 }
 
 /* ---------- Mobile ---------- */
@@ -298,6 +369,9 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   input, select, textarea { font-size: 16px; }
   main.wrap { padding-top: 20px; padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   .topbar .wrap { height: 52px; gap: 12px; justify-content: space-between; }
+  .user { gap: 10px; }
+  .lang button { min-width: 44px; min-height: 44px; } /* cible tactile 44 px */
+  .auth-lang { top: 4px; right: 8px; }
   .tabs {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; flex: none; align-self: auto; gap: 0;
     height: calc(58px + env(safe-area-inset-bottom)); padding: 0 8px env(safe-area-inset-bottom);
@@ -344,4 +418,16 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   .meta { grid-template-columns: 1fr; gap: 10px; }
   .meta dt { font-size: 0.78rem; font-weight: 500; margin-bottom: -8px; }
   .toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
+  .photos-add .actions > .btn.ghost { flex: 1 1 100%; margin-left: 0; justify-content: center; border-color: var(--line); } /* vrai bouton sur mobile */
+  .photos-add .hint { flex: 1 1 100%; text-align: center; }
+  .lb { width: 100vw; max-height: none; margin: 0; border-radius: 0; }
+  .lb-top { padding: 6px 6px 6px 16px; }
+  .lb-stage { padding: 0 8px; }
+  .lb-nav { background: rgba(20, 20, 20, .45); } /* par-dessus l'image, lisible sur fond clair comme sombre */
+  .lb-nav.prev { left: 6px; }
+  .lb-nav.next { right: 6px; }
+  .lb-foot { padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); }
+  .lb-actions { width: 100%; }
+  .lb-actions .btn { flex: 1; }
+  .lb-actions .hint { flex: 1 1 100%; text-align: center; }
 }
