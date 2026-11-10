@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "piotr",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  // Fichiers statiques (public/) servis directement ; seules les routes /api/* passent par le Worker.
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "piotr",
+      // Remplacer par l'id affiché par `npx wrangler d1 create piotr`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Si renseigné, seul ce compte devient administrateur ; sinon le premier compte créé.
+  "vars": { "ADMIN_EMAIL": "" }
+}
