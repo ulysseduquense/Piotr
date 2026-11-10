@@ -1,4 +1,4 @@
-// Piotr – petits travaux : réservation de créneaux, suivi des heures et des frais.
+// Piotr – petits travaux : activités (un prestataire et ses clients), réservation de créneaux, suivi des heures et des frais.
 // Cloudflare Worker (Hono + D1). Les fichiers de public/ sont servis par le binding ASSETS ;
 // seules les routes /api/* passent par ce Worker (assets.run_worker_first dans wrangler.jsonc).
 import { Hono } from 'hono';
@@ -15,16 +15,13 @@ const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 // Champ texte libre : la valeur si c'est une chaîne, sinon la valeur par défaut (un objet lié tel quel ferait échouer D1 → 500).
 const str = (v, d = '') => typeof v === 'string' ? v : d;
 // Paramètre d'URL numérique ; 0 (id inexistant) si invalide, pour ne jamais lier NaN dans D1.
-const idParam = c => { const n = Number(c.req.param('id')); return Number.isInteger(n) ? n : 0; };
+const idParam = (c, name = 'id') => { const n = Number(c.req.param(name)); return Number.isInteger(n) ? n : 0; };
 // Corps JSON ; {} si absent, invalide ou pas un objet (équivalent de `req.body || {}`).
 const json = c => c.req.json().then(v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), () => ({}));
-const getSetting = async (db, k, d) => (await db.prepare('SELECT value FROM settings WHERE key=?').bind(k).first('value')) ?? d;
-const setSetting = (db, k, v) => db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
-  .bind(k, String(v)).run();
 
 // --- Erreurs : texte français (affiché tel quel) + code stable (pour la traduction côté client) -----
 const ERRORS = {
-  NOT_LOGGED_IN: [401, 'Non connecté'], ADMIN_ONLY: [403, 'Réservé à l’administrateur'],
+  NOT_LOGGED_IN: [401, 'Non connecté'], ADMIN_ONLY: [403, 'Réservé au prestataire'],
   CLIENT_CANCEL_ONLY: [403, 'Vous pouvez uniquement annuler votre demande'], NOT_FOUND: [404, 'Introuvable'],
   REGISTER_INVALID: [400, 'Nom, e-mail et mot de passe (6 caractères min.) requis'], EMAIL_TAKEN: [409, 'Cet e-mail est déjà utilisé'],
   INVALID_CREDENTIALS: [401, 'Identifiants incorrects'], SLOT_INVALID: [400, 'Créneau invalide'],
@@ -34,6 +31,8 @@ const ERRORS = {
   SERVER_ERROR: [500, 'Erreur serveur'], FILE_MISSING: [400, 'Fichier manquant'], FILE_TYPE: [400, 'Format d’image non pris en charge'],
   FILE_TOO_LARGE: [413, 'Fichier trop volumineux (10 Mo max.)'], EXPENSE_MISMATCH: [400, 'Cet achat n’appartient pas à cette intervention'],
   CAPTION_INVALID: [400, 'Légende trop longue (200 caractères max.)'],
+  ACTIVITY_INVALID: [400, 'Nom d’activité invalide (2 à 60 caractères)'], INVITE_INVALID: [404, 'Lien d’invitation invalide'],
+  CANNOT_REMOVE_OWNER: [400, 'Impossible de retirer le prestataire'],
 };
 const err = (c, code) => c.json({ error: ERRORS[code][1], code }, ERRORS[code][0]);
 
@@ -71,31 +70,25 @@ app.use('/api/*', async (c, next) => {
   const token = getCookie(c, 'sid');
   if (token) {
     c.set('token', token);
-    c.set('user', await c.env.DB.prepare(`SELECT u.id,u.email,u.name,u.phone,u.role FROM sessions s
+    c.set('user', await c.env.DB.prepare(`SELECT u.id,u.email,u.name,u.phone FROM sessions s
       JOIN users u ON u.id=s.user_id WHERE s.token=?`).bind(token).first());
   }
   await next();
 });
 const auth = (c, next) => c.get('user') ? next() : err(c, 'NOT_LOGGED_IN');
-const admin = (c, next) => c.get('user')?.role === 'admin' ? next() : err(c, 'ADMIN_ONLY');
 
 // --- Authentification ------------------------------------------------------
+// Un compte est une simple personne : ses rôles (prestataire, client) dépendent de chaque activité (voir memberships).
 app.post('/api/register', async c => {
   const { email, name, password, phone } = await json(c);
   // Chaînes exigées : un mot de passe numérique (12) ou un objet {length:99} contournerait sinon le minimum de 6 caractères.
   if ([email, name, password].some(v => typeof v !== 'string') || !email.trim() || !name.trim() || password.length < 6) return err(c, 'REGISTER_INVALID');
   const db = c.env.DB, normEmail = email.trim().toLowerCase();
   if (await db.prepare('SELECT 1 FROM users WHERE email=?').bind(normEmail).first()) return err(c, 'EMAIL_TAKEN');
-  const adminEmail = (c.env.ADMIN_EMAIL || '').toLowerCase();
-  // Rôle : ADMIN_EMAIL s'il est défini, sinon le tout premier inscrit. Dans ce second cas, le test « table vide »
-  // est fait dans l'INSERT lui-même (une seule instruction, donc atomique) : deux inscriptions simultanées,
-  // éventuellement traitées par deux isolates, ne peuvent pas être toutes deux admin.
-  const role = adminEmail ? (normEmail === adminEmail ? 'admin' : 'client') : null;
   let r;
   try {
-    r = await db.prepare(`INSERT INTO users(email,name,phone,password_hash,role)
-      VALUES(?,?,?,?, COALESCE(?, CASE WHEN EXISTS (SELECT 1 FROM users) THEN 'client' ELSE 'admin' END))`)
-      .bind(normEmail, name.trim(), str(phone).trim(), await hashPassword(password), role).run();
+    r = await db.prepare('INSERT INTO users(email,name,phone,password_hash) VALUES(?,?,?,?)')
+      .bind(normEmail, name.trim(), str(phone).trim(), await hashPassword(password)).run();
   } catch (e) { // deux inscriptions simultanées avec le même e-mail : la contrainte UNIQUE tranche
     if (/UNIQUE constraint failed: users\.email/.test(String(e?.message))) return err(c, 'EMAIL_TAKEN');
     throw e;
@@ -116,27 +109,123 @@ app.post('/api/logout', async c => {
   setSid(c, '', 0);
   return c.json({ ok: true });
 });
-app.get('/api/me', async c => c.json({ user: c.get('user') || null, defaultRate: Number(await getSetting(c.env.DB, 'default_rate', 25)) }));
 
-// --- Calendrier ------------------------------------------------------------
+// --- Activités et adhésions ---------------------------------------------------
+// Une activité = un prestataire (owner) et ses clients, reliés par la table memberships ; les clients la rejoignent par un
+// lien d'invitation (invite_code). Calendrier, indisponibilités, réservations et tarif sont rattachés à une activité ;
+// un utilisateur peut être prestataire de la sienne et client de plusieurs autres. Un non-membre reçoit 404 sur toutes
+// les routes d'une activité (son existence n'est jamais révélée) ; un client sur une action de prestataire reçoit 403.
+const member = (db, aid, userId) => db.prepare('SELECT role FROM memberships WHERE activity_id=? AND user_id=?').bind(aid, userId).first('role');
+const ACTIVITY_COLS = `a.id, a.name, a.default_rate, a.invite_code, o.name owner_name,
+  (SELECT COUNT(*) FROM memberships m WHERE m.activity_id=a.id) members_count`;
+const activityRow = (db, aid) => db.prepare(`SELECT ${ACTIVITY_COLS} FROM activities a JOIN users o ON o.id=a.owner_id WHERE a.id=?`).bind(aid).first();
+// Objet activité tel qu'exposé : tarif, code d'invitation et nombre de membres (prestataire compris) réservés au prestataire.
+const activityJSON = ({ id, name, owner_name, default_rate, invite_code, members_count }, role) =>
+  ({ id, name, role, owner_name, ...(role === 'owner' && { default_rate, invite_code, members_count }) });
+// Code d'invitation : 20 caractères hexadécimaux aléatoires ; le régénérer invalide l'ancien lien.
+const inviteCode = () => hex(crypto.getRandomValues(new Uint8Array(10)));
+// Nom (2 à 60 caractères, espaces retirés) et tarif (≥ 0) d'une activité → [code d'erreur] ou [null, { name, rate }].
+// À la création, le nom est requis et le tarif vaut 25 par défaut ; en modification, les champs absents sont conservés.
+function activityFields(body, current) {
+  const name = body.name != null || !current ? [...str(body.name).trim()] : [...current.name];
+  if (name.length < 2 || name.length > 60) return ['ACTIVITY_INVALID'];
+  const rate = body.default_rate != null ? num(body.default_rate) : current ? current.default_rate : 25;
+  if (rate === null || rate < 0) return ['RATE_INVALID'];
+  return [null, { name: name.join(''), rate }];
+}
+// Intergiciels des routes /api/activities/:aid/* : membre (rôle dans c.get('role'), id dans c.get('aid')) ; prestataire.
+const inActivity = async (c, next) => {
+  const aid = idParam(c, 'aid'), role = await member(c.env.DB, aid, c.get('user').id);
+  if (!role) return err(c, 'NOT_FOUND');
+  c.set('aid', aid); c.set('role', role);
+  await next();
+};
+const ownerOnly = (c, next) => c.get('role') === 'owner' ? next() : err(c, 'ADMIN_ONLY');
+// Rôle de l'utilisateur dans l'activité d'une ligne (réservation, indisponibilité, photo…) ; null si ligne absente ou non-membre.
+const roleOf = async (db, row, user) => row ? await member(db, row.activity_id, user.id) : null;
+// Réponse d'erreur pour une action de prestataire (404 si inconnu / non-membre, 403 si client), ou null si autorisé.
+const ownerGate = (c, role) => !role ? err(c, 'NOT_FOUND') : role !== 'owner' ? err(c, 'ADMIN_ONLY') : null;
+
+// Compte + ses activités ('owner' > 'client', donc le tri décroissant place les activités dont on est prestataire en tête).
+app.get('/api/me', async c => {
+  const user = c.get('user');
+  if (!user) return c.json({ user: null, activities: [] });
+  const { results } = await c.env.DB.prepare(`SELECT ${ACTIVITY_COLS}, mm.role FROM memberships mm
+    JOIN activities a ON a.id=mm.activity_id JOIN users o ON o.id=a.owner_id
+    WHERE mm.user_id=? ORDER BY mm.role DESC, a.name COLLATE NOCASE`).bind(user.id).all();
+  return c.json({ user, activities: results.map(r => activityJSON(r, r.role)) });
+});
+app.post('/api/activities', auth, async c => {
+  const [e, f] = activityFields(await json(c));
+  if (e) return err(c, e);
+  const db = c.env.DB, code = inviteCode();
+  // Activité et adhésion du prestataire créées en un seul lot (transaction D1).
+  await db.batch([
+    db.prepare('INSERT INTO activities(owner_id,name,invite_code,default_rate) VALUES(?,?,?,?)').bind(c.get('user').id, f.name, code, f.rate),
+    db.prepare("INSERT INTO memberships(activity_id,user_id,role) SELECT id,owner_id,'owner' FROM activities WHERE invite_code=?").bind(code),
+  ]);
+  const aid = await db.prepare('SELECT id FROM activities WHERE invite_code=?').bind(code).first('id');
+  return c.json(activityJSON(await activityRow(db, aid), 'owner'));
+});
+app.get('/api/activities/:aid', auth, inActivity, async c => c.json(activityJSON(await activityRow(c.env.DB, c.get('aid')), c.get('role'))));
+app.patch('/api/activities/:aid', auth, inActivity, ownerOnly, async c => {
+  const db = c.env.DB, aid = c.get('aid'), [e, f] = activityFields(await json(c), await activityRow(db, aid));
+  if (e) return err(c, e);
+  await db.prepare('UPDATE activities SET name=?, default_rate=? WHERE id=?').bind(f.name, f.rate, aid).run();
+  return c.json(activityJSON(await activityRow(db, aid), 'owner'));
+});
+app.post('/api/activities/:aid/invite/regenerate', auth, inActivity, ownerOnly, async c => {
+  const code = inviteCode();
+  await c.env.DB.prepare('UPDATE activities SET invite_code=? WHERE id=?').bind(code, c.get('aid')).run();
+  return c.json({ invite_code: code });
+});
+app.get('/api/activities/:aid/members', auth, inActivity, ownerOnly, async c =>
+  c.json((await c.env.DB.prepare(`SELECT u.id,u.name,u.email,u.phone,m.role,m.joined_at FROM memberships m JOIN users u ON u.id=m.user_id
+    WHERE m.activity_id=? ORDER BY m.role DESC, u.name COLLATE NOCASE`).bind(c.get('aid')).all()).results));
+// Retirer un client : il perd l'accès à l'activité et à ses demandes (qui restent visibles du prestataire).
+app.delete('/api/activities/:aid/members/:userId', auth, inActivity, ownerOnly, async c => {
+  const db = c.env.DB, aid = c.get('aid'), uid = idParam(c, 'userId'), role = await member(db, aid, uid);
+  if (!role) return err(c, 'NOT_FOUND');
+  if (role === 'owner') return err(c, 'CANNOT_REMOVE_OWNER');
+  await db.prepare('DELETE FROM memberships WHERE activity_id=? AND user_id=?').bind(aid, uid).run();
+  return c.json({ ok: true });
+});
+
+// Lien d'invitation /join/<code> : aperçu public, puis adhésion (connecté). Idempotent : un membre garde son rôle
+// (le prestataire reste 'owner') ; deux adhésions simultanées → la clé primaire de memberships tranche (OR IGNORE).
+const joinRow = (db, code) => db.prepare('SELECT a.id, a.name, o.name owner_name FROM activities a JOIN users o ON o.id=a.owner_id WHERE a.invite_code=?')
+  .bind(code).first();
+app.get('/api/join/:code', async c => {
+  const a = await joinRow(c.env.DB, c.req.param('code'));
+  if (!a) return err(c, 'INVITE_INVALID');
+  return c.json({ activity: { id: a.id, name: a.name }, owner: { name: a.owner_name } });
+});
+app.post('/api/join/:code', auth, async c => {
+  const db = c.env.DB, user = c.get('user'), a = await joinRow(db, c.req.param('code'));
+  if (!a) return err(c, 'INVITE_INVALID');
+  await db.prepare("INSERT OR IGNORE INTO memberships(activity_id,user_id,role) VALUES(?,?,'client')").bind(a.id, user.id).run();
+  return c.json({ activity: { id: a.id, name: a.name, role: await member(db, a.id, user.id) } });
+});
+
+// --- Calendrier (d'une activité) --------------------------------------------
 // Les clients voient : leurs propres demandes en détail, et tout le reste comme « Occupé ».
 // « title » (français) est conservé pour compatibilité ; les champs bruts (note, description, client_name)
 // permettent à l'interface de composer un titre dans la langue de l'utilisateur.
-app.get('/api/calendar', auth, async c => {
-  const db = c.env.DB, user = c.get('user'), isAdmin = user.role === 'admin', events = [];
+app.get('/api/activities/:aid/calendar', auth, inActivity, async c => {
+  const db = c.env.DB, user = c.get('user'), aid = c.get('aid'), isOwner = c.get('role') === 'owner', events = [];
   const [unav, rows] = await db.batch([
-    db.prepare('SELECT * FROM unavailabilities'),
+    db.prepare('SELECT * FROM unavailabilities WHERE activity_id=?').bind(aid),
     db.prepare(`SELECT b.*, u.name client_name FROM bookings b JOIN users u ON u.id=b.client_id
-      WHERE b.status IN ('pending','confirmed','done')`),
+      WHERE b.activity_id=? AND b.status IN ('pending','confirmed','done')`).bind(aid),
   ]);
   for (const u of unav.results)
     events.push({ id: 'u' + u.id, kind: 'unavailable', start: u.start, end: u.end,
-      title: isAdmin ? `Indisponible${u.note ? ' – ' + u.note : ''}` : 'Indisponible', ...(isAdmin && { note: u.note || '' }) });
+      title: isOwner ? `Indisponible${u.note ? ' – ' + u.note : ''}` : 'Indisponible', ...(isOwner && { note: u.note || '' }) });
   for (const b of rows.results) {
-    if (isAdmin || b.client_id === user.id)
+    if (isOwner || b.client_id === user.id)
       events.push({ id: 'b' + b.id, kind: 'booking', bookingId: b.id, status: b.status, start: b.start, end: b.end,
-        title: (isAdmin ? b.client_name + ' – ' : '') + (b.description || 'Travaux'),
-        description: b.description || '', ...(isAdmin && { client_name: b.client_name }) });
+        title: (isOwner ? b.client_name + ' – ' : '') + (b.description || 'Travaux'),
+        description: b.description || '', ...(isOwner && { client_name: b.client_name }) });
     else events.push({ id: 'b' + b.id, kind: 'busy', start: b.start, end: b.end, title: 'Occupé' });
   }
   return c.json(events);
@@ -144,19 +233,19 @@ app.get('/api/calendar', auth, async c => {
 
 // Insertion conditionnelle d'une réservation : le contrôle de chevauchement et l'insertion forment UNE seule
 // instruction SQL (atomique). Un contrôle séparé laisserait deux demandes simultanées sur le même créneau passer
-// toutes les deux. Chevauchement = start < fin ET end > début (les créneaux qui se touchent sont permis) ;
-// seules les réservations pending/confirmed bloquent (annulées, refusées et terminées libèrent le créneau).
-// Paramètres : 1 client_id, 2 start, 3 end, 4 description, 5 address, 6 hourly_rate.
-const INSERT_BOOKING_SQL = `INSERT INTO bookings(client_id,start,end,description,address,hourly_rate)
-  SELECT ?1,?2,?3,?4,?5,?6
-  WHERE NOT EXISTS (SELECT 1 FROM unavailabilities WHERE start < ?3 AND end > ?2)
-    AND NOT EXISTS (SELECT 1 FROM bookings WHERE status IN ('pending','confirmed') AND start < ?3 AND end > ?2)`;
+// toutes les deux. Chevauchement = start < fin ET end > début (les créneaux qui se touchent sont permis), au sein de
+// la même activité ; seules les réservations pending/confirmed bloquent (annulées, refusées et terminées libèrent le créneau).
+// Paramètres : 1 activity_id, 2 client_id, 3 start, 4 end, 5 description, 6 address, 7 hourly_rate.
+const INSERT_BOOKING_SQL = `INSERT INTO bookings(activity_id,client_id,start,end,description,address,hourly_rate)
+  SELECT ?1,?2,?3,?4,?5,?6,?7
+  WHERE NOT EXISTS (SELECT 1 FROM unavailabilities WHERE activity_id=?1 AND start < ?4 AND end > ?3)
+    AND NOT EXISTS (SELECT 1 FROM bookings WHERE activity_id=?1 AND status IN ('pending','confirmed') AND start < ?4 AND end > ?3)`;
 
 // --- Réservations ----------------------------------------------------------
 const BOOKING_SQL = `SELECT b.*, u.name client_name, u.email client_email, u.phone client_phone
   FROM bookings b JOIN users u ON u.id=b.client_id`;
-// Photo telle qu'exposée par l'API : sans la clé R2 (détail interne), avec l'URL de téléchargement.
-const photoJSON = ({ r2_key, client_id, ...p }) => ({ ...p, url: `/api/photos/${p.id}` });
+// Photo telle qu'exposée par l'API : sans la clé R2 ni les colonnes de contrôle d'accès, avec l'URL de téléchargement.
+const photoJSON = ({ r2_key, client_id, activity_id, ...p }) => ({ ...p, url: `/api/photos/${p.id}` });
 function withTotals(b, work, expenses, photos) {
   b.work = work; b.expenses = expenses; b.photos = photos.map(photoJSON);
   const hours = work.reduce((s, w) => s + w.hours, 0);
@@ -174,12 +263,19 @@ async function bookingDetail(db, id) {
   ]);
   return b.results[0] ? withTotals(b.results[0], w.results, e.results, p.results) : null;
 }
-const bookingExists = (db, id) => db.prepare('SELECT 1 FROM bookings WHERE id=?').bind(id).first();
-const canSee = (user, b) => !!b && (user.role === 'admin' || b.client_id === user.id);
+// Accès à une réservation (ou à une ligne qui en porte activity_id et client_id, comme une photo) : 'owner' pour le
+// prestataire de son activité, 'client' pour son auteur s'il est encore membre, sinon null → 404 sans révéler l'existence.
+// Un client retiré de l'activité perd ainsi l'accès à ses anciennes demandes, que le prestataire continue de voir.
+async function bookingAccess(db, b, user) {
+  const role = await roleOf(db, b, user);
+  return role === 'owner' || (role === 'client' && b.client_id === user.id) ? role : null;
+}
+const loadBooking = (db, id) => db.prepare('SELECT id,activity_id,client_id FROM bookings WHERE id=?').bind(id).first();
 
-app.get('/api/bookings', auth, async c => {
-  const db = c.env.DB, user = c.get('user'), mine = user.role !== 'admin';
-  const q = sql => (mine ? db.prepare(sql).bind(user.id) : db.prepare(sql)), where = mine ? 'WHERE b.client_id=?' : '';
+app.get('/api/activities/:aid/bookings', auth, inActivity, async c => {
+  const db = c.env.DB, user = c.get('user'), aid = c.get('aid'), mine = c.get('role') !== 'owner';
+  const q = sql => (mine ? db.prepare(sql).bind(aid, user.id) : db.prepare(sql).bind(aid));
+  const where = mine ? 'WHERE b.activity_id=?1 AND b.client_id=?2' : 'WHERE b.activity_id=?1';
   const [bs, ws, es, ps] = await db.batch([
     q(`${BOOKING_SQL} ${where} ORDER BY b.start DESC`),
     q(`SELECT w.* FROM work_entries w JOIN bookings b ON b.id=w.booking_id ${where} ORDER BY w.date`),
@@ -190,27 +286,27 @@ app.get('/api/bookings', auth, async c => {
     es.results.filter(e => e.booking_id === b.id), ps.results.filter(p => p.booking_id === b.id))));
 });
 app.get('/api/bookings/:id', auth, async c => {
-  const b = await bookingDetail(c.env.DB, idParam(c));
-  if (!canSee(c.get('user'), b)) return err(c, 'NOT_FOUND');
+  const db = c.env.DB, b = await bookingDetail(db, idParam(c));
+  if (!(await bookingAccess(db, b, c.get('user')))) return err(c, 'NOT_FOUND');
   return c.json(b);
 });
-app.post('/api/bookings', auth, async c => {
+// Demande d'un membre (le prestataire peut aussi encoder une intervention passée) ; tarif = tarif par défaut de l'activité.
+app.post('/api/activities/:aid/bookings', auth, inActivity, async c => {
   const { start, end, description, address } = await json(c);
-  const db = c.env.DB, user = c.get('user');
+  const db = c.env.DB, user = c.get('user'), aid = c.get('aid');
   if (!isISO(start) || !isISO(end) || Date.parse(end) <= Date.parse(start)) return err(c, 'SLOT_INVALID');
-  if (Date.parse(start) < Date.now() && user.role !== 'admin') return err(c, 'SLOT_PAST');
-  const s = toUTC(start), e = toUTC(end);
-  const r = await db.prepare(INSERT_BOOKING_SQL)
-    .bind(user.id, s, e, str(description), str(address), Number(await getSetting(db, 'default_rate', 25))).run();
+  if (Date.parse(start) < Date.now() && c.get('role') !== 'owner') return err(c, 'SLOT_PAST');
+  const rate = await db.prepare('SELECT default_rate FROM activities WHERE id=?').bind(aid).first('default_rate');
+  const r = await db.prepare(INSERT_BOOKING_SQL).bind(aid, user.id, toUTC(start), toUTC(end), str(description), str(address), rate).run();
   if (!r.meta.changes) return err(c, 'SLOT_UNAVAILABLE');
   return c.json(await bookingDetail(db, r.meta.last_row_id));
 });
-// Le client peut annuler sa demande ; l'admin peut tout modifier.
+// Le client peut annuler sa demande ; le prestataire peut tout modifier.
 app.patch('/api/bookings/:id', auth, async c => {
-  const db = c.env.DB, user = c.get('user'), b = await bookingDetail(db, idParam(c));
-  if (!canSee(user, b)) return err(c, 'NOT_FOUND');
+  const db = c.env.DB, user = c.get('user'), b = await bookingDetail(db, idParam(c)), role = await bookingAccess(db, b, user);
+  if (!role) return err(c, 'NOT_FOUND');
   const body = await json(c);
-  if (user.role !== 'admin') {
+  if (role !== 'owner') {
     if (body.status !== 'cancelled' || Object.keys(body).length !== 1) return err(c, 'CLIENT_CANCEL_ONLY');
     await db.prepare("UPDATE bookings SET status='cancelled' WHERE id=?").bind(b.id).run();
     return c.json(await bookingDetail(db, b.id));
@@ -227,27 +323,35 @@ app.patch('/api/bookings/:id', auth, async c => {
   return c.json(await bookingDetail(db, b.id));
 });
 
-// Heures prestées et achats (admin uniquement)
-app.post('/api/bookings/:id/work', auth, admin, async c => {
-  const { date, hours, note } = await json(c), h = num(hours), db = c.env.DB, id = idParam(c);
+// Heures prestées et achats (prestataire de l'activité de la réservation uniquement)
+app.post('/api/bookings/:id/work', auth, async c => {
+  const db = c.env.DB, id = idParam(c), gate = ownerGate(c, await roleOf(db, await loadBooking(db, id), c.get('user')));
+  if (gate) return gate;
+  const { date, hours, note } = await json(c), h = num(hours);
   if (typeof date !== 'string' || !date || !h || h <= 0) return err(c, 'WORK_INVALID');
-  if (!(await bookingExists(db, id))) return err(c, 'NOT_FOUND');
   await db.prepare('INSERT INTO work_entries(booking_id,date,hours,note) VALUES(?,?,?,?)').bind(id, date, h, str(note)).run();
   return c.json(await bookingDetail(db, id));
 });
-app.delete('/api/work/:id', auth, admin, async c => {
-  await c.env.DB.prepare('DELETE FROM work_entries WHERE id=?').bind(idParam(c)).run(); return c.json({ ok: true });
+app.delete('/api/work/:id', auth, async c => {
+  const db = c.env.DB, w = await db.prepare('SELECT w.id, b.activity_id FROM work_entries w JOIN bookings b ON b.id=w.booking_id WHERE w.id=?').bind(idParam(c)).first();
+  const gate = ownerGate(c, await roleOf(db, w, c.get('user')));
+  if (gate) return gate;
+  await db.prepare('DELETE FROM work_entries WHERE id=?').bind(w.id).run(); return c.json({ ok: true });
 });
-app.post('/api/bookings/:id/expenses', auth, admin, async c => {
-  const { label, amount } = await json(c), a = num(amount), db = c.env.DB, id = idParam(c);
+app.post('/api/bookings/:id/expenses', auth, async c => {
+  const db = c.env.DB, id = idParam(c), gate = ownerGate(c, await roleOf(db, await loadBooking(db, id), c.get('user')));
+  if (gate) return gate;
+  const { label, amount } = await json(c), a = num(amount);
   if (typeof label !== 'string' || !label || a === null) return err(c, 'EXPENSE_INVALID');
-  if (!(await bookingExists(db, id))) return err(c, 'NOT_FOUND');
   await db.prepare('INSERT INTO expenses(booking_id,label,amount) VALUES(?,?,?)').bind(id, label, a).run();
   return c.json(await bookingDetail(db, id));
 });
 // Les photos d'un achat supprimé restent attachées à l'intervention (expense_id remis à NULL par la clé étrangère).
-app.delete('/api/expenses/:id', auth, admin, async c => {
-  await c.env.DB.prepare('DELETE FROM expenses WHERE id=?').bind(idParam(c)).run(); return c.json({ ok: true });
+app.delete('/api/expenses/:id', auth, async c => {
+  const db = c.env.DB, e = await db.prepare('SELECT e.id, b.activity_id FROM expenses e JOIN bookings b ON b.id=e.booking_id WHERE e.id=?').bind(idParam(c)).first();
+  const gate = ownerGate(c, await roleOf(db, e, c.get('user')));
+  if (gate) return gate;
+  await db.prepare('DELETE FROM expenses WHERE id=?').bind(e.id).run(); return c.json({ ok: true });
 });
 
 // --- Photos (R2) -------------------------------------------------------------
@@ -268,7 +372,7 @@ function sniffImage(b) { // → [content_type, extension] ou null
 }
 // Valeur RFC 5987 pour filename*= (encodeURIComponent laisse passer ' ( ) * qui n'y sont pas admis).
 const rfc5987 = s => encodeURIComponent(s).replace(/[()'*]/g, ch => '%' + ch.charCodeAt(0).toString(16).toUpperCase());
-const photoRow = (db, id) => db.prepare('SELECT p.*, b.client_id FROM photos p JOIN bookings b ON b.id=p.booking_id WHERE p.id=?').bind(id).first();
+const photoRow = (db, id) => db.prepare('SELECT p.*, b.client_id, b.activity_id FROM photos p JOIN bookings b ON b.id=p.booking_id WHERE p.id=?').bind(id).first();
 // Lit un corps de requête en entier, avec une borne : null dès que la limite est dépassée (le reste n'est pas lu).
 async function readBounded(stream, max) {
   if (!stream) return new Uint8Array(0);
@@ -282,12 +386,11 @@ async function readBounded(stream, max) {
   return out;
 }
 
-// Envoi (multipart : file, caption ≤ 200 car., expense_id). Admin ou client de l'intervention, quel que soit son statut ;
-// lier la photo à un achat (justificatif) est réservé à l'admin.
+// Envoi (multipart : file, caption ≤ 200 car., expense_id). Prestataire ou client de l'intervention, quel que soit son
+// statut ; lier la photo à un achat (justificatif) est réservé au prestataire.
 app.post('/api/bookings/:id/photos', auth, async c => {
-  const db = c.env.DB, user = c.get('user'), id = idParam(c);
-  const b = await db.prepare('SELECT id,client_id FROM bookings WHERE id=?').bind(id).first();
-  if (!canSee(user, b)) return err(c, 'NOT_FOUND');
+  const db = c.env.DB, user = c.get('user'), id = idParam(c), role = await bookingAccess(db, await loadBooking(db, id), user);
+  if (!role) return err(c, 'NOT_FOUND');
   // Taille annoncée contrôlée avant de lire le corps (petite marge pour l'enrobage multipart) ; le corps est ensuite lu
   // en flux avec la même borne (un envoi « chunked » n'annonce pas de taille et serait sinon mis en mémoire en entier),
   // puis la taille réelle du fichier est vérifiée.
@@ -305,7 +408,7 @@ app.post('/api/bookings/:id/photos', auth, async c => {
   let expenseId = null;
   const rawExpense = form.get('expense_id');
   if (rawExpense != null && String(rawExpense).trim() !== '') {
-    if (user.role !== 'admin') return err(c, 'ADMIN_ONLY');
+    if (role !== 'owner') return err(c, 'ADMIN_ONLY');
     expenseId = Number(rawExpense);
     if (!Number.isInteger(expenseId) || !(await db.prepare('SELECT 1 FROM expenses WHERE id=? AND booking_id=?').bind(expenseId, id).first()))
       return err(c, 'EXPENSE_MISMATCH');
@@ -328,10 +431,10 @@ app.post('/api/bookings/:id/photos', auth, async c => {
   }
   return c.json(photoJSON(await db.prepare('SELECT * FROM photos WHERE id=?').bind(r.meta.last_row_id).first()));
 });
-// Lecture : admin ou client de l'intervention ; sinon 404 (sans révéler l'existence). ?download=1 → pièce jointe.
+// Lecture : prestataire ou client de l'intervention ; sinon 404 (sans révéler l'existence). ?download=1 → pièce jointe.
 app.get('/api/photos/:id', auth, async c => {
-  const p = await photoRow(c.env.DB, idParam(c));
-  if (!canSee(c.get('user'), p)) return err(c, 'NOT_FOUND');
+  const db = c.env.DB, p = await photoRow(db, idParam(c));
+  if (!(await bookingAccess(db, p, c.get('user')))) return err(c, 'NOT_FOUND');
   const obj = await c.env.PHOTOS.get(p.r2_key);
   if (!obj) return err(c, 'NOT_FOUND');
   const headers = { ETag: obj.httpEtag, 'Cache-Control': 'private, max-age=86400' };
@@ -343,33 +446,30 @@ app.get('/api/photos/:id', auth, async c => {
   return new Response(obj.body, { headers: { ...headers, 'Content-Type': p.content_type, 'Content-Length': String(obj.size),
     'X-Content-Type-Options': 'nosniff', 'Content-Disposition': `${disposition}; filename*=UTF-8''${rfc5987(p.filename)}` } });
 });
-// Suppression : admin, ou le client de l'intervention s'il a lui-même envoyé la photo.
+// Suppression : prestataire, ou le client de l'intervention s'il a lui-même envoyé la photo.
 app.delete('/api/photos/:id', auth, async c => {
-  const db = c.env.DB, user = c.get('user'), p = await photoRow(db, idParam(c));
-  if (!canSee(user, p)) return err(c, 'NOT_FOUND');
-  if (user.role !== 'admin' && p.uploaded_by !== user.id) return err(c, 'ADMIN_ONLY');
+  const db = c.env.DB, user = c.get('user'), p = await photoRow(db, idParam(c)), role = await bookingAccess(db, p, user);
+  if (!role) return err(c, 'NOT_FOUND');
+  if (role !== 'owner' && p.uploaded_by !== user.id) return err(c, 'ADMIN_ONLY');
   await c.env.PHOTOS.delete(p.r2_key);
   await db.prepare('DELETE FROM photos WHERE id=?').bind(p.id).run();
   return c.json({ ok: true });
 });
 
-// --- Indisponibilités & réglages (admin) ------------------------------------
-app.post('/api/unavailabilities', auth, admin, async c => {
+// --- Indisponibilités (prestataire) ------------------------------------------
+app.post('/api/activities/:aid/unavailabilities', auth, inActivity, ownerOnly, async c => {
   const { start, end, note } = await json(c);
   if (!isISO(start) || !isISO(end) || Date.parse(end) <= Date.parse(start)) return err(c, 'PERIOD_INVALID');
-  const r = await c.env.DB.prepare('INSERT INTO unavailabilities(start,end,note) VALUES(?,?,?)').bind(toUTC(start), toUTC(end), str(note)).run();
+  const r = await c.env.DB.prepare('INSERT INTO unavailabilities(activity_id,start,end,note) VALUES(?,?,?,?)')
+    .bind(c.get('aid'), toUTC(start), toUTC(end), str(note)).run();
   return c.json({ id: r.meta.last_row_id });
 });
-app.delete('/api/unavailabilities/:id', auth, admin, async c => {
-  await c.env.DB.prepare('DELETE FROM unavailabilities WHERE id=?').bind(idParam(c)).run(); return c.json({ ok: true });
+app.delete('/api/unavailabilities/:id', auth, async c => {
+  const db = c.env.DB, u = await db.prepare('SELECT id,activity_id FROM unavailabilities WHERE id=?').bind(idParam(c)).first();
+  const gate = ownerGate(c, await roleOf(db, u, c.get('user')));
+  if (gate) return gate;
+  await db.prepare('DELETE FROM unavailabilities WHERE id=?').bind(u.id).run(); return c.json({ ok: true });
 });
-app.put('/api/settings', auth, admin, async c => {
-  const r = num((await json(c)).default_rate);
-  if (r === null || r < 0) return err(c, 'RATE_INVALID');
-  await setSetting(c.env.DB, 'default_rate', r); return c.json({ ok: true });
-});
-app.get('/api/clients', auth, admin, async c =>
-  c.json((await c.env.DB.prepare("SELECT id,name,email,phone,created_at FROM users WHERE role='client' ORDER BY name").all()).results));
 
 // --- Divers ------------------------------------------------------------------
 // Route API inconnue → 404 JSON ; tout le reste → fichiers statiques (si jamais le Worker les reçoit).
