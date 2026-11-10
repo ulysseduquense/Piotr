@@ -1,0 +1,10 @@
+{
+  "name": "piotr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Réservation de créneaux pour petits travaux, suivi des heures et des achats",
+  "main": "server.js",
+  "scripts": { "start": "node --no-warnings server.js" },
+  "engines": { "node": ">=22.5" },
+  "dependencies": { "express": "^4.21.2" }
+}

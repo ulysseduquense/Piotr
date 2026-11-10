@@ -1,0 +1,39 @@
+:root{--bg:#f5f6f8;--card:#fff;--text:#1d2330;--muted:#667;--accent:#2f6fde;--line:#dde1e7;
+--unav:#9aa3ad;--busy:#c9ced6;--pending:#f0a020;--confirmed:#2e9e5b;--done:#5a6fd6;--danger:#d64545}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+header h1{font-size:1.2rem;margin:0}
+nav{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+nav button.active{background:var(--text)}
+#who{color:var(--muted);font-size:.9rem;margin:0 6px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.narrow{max-width:400px;margin:40px auto}
+label{display:block;margin:8px 0;font-size:.9rem}
+input,textarea,select{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit;margin-top:3px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row input{width:auto;flex:1;min-width:90px;margin:0}
+button{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:8px 14px;font:inherit;cursor:pointer}
+button.secondary{background:#e7eaef;color:var(--text)}
+button.danger{background:var(--danger)}
+button.small{padding:3px 8px;font-size:.8rem}
+.error{color:var(--danger);min-height:1em}
+.hint{color:var(--muted);font-size:.9rem}
+.legend{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.85rem;margin-bottom:8px}
+.dot{width:12px;height:12px;border-radius:3px;display:inline-block;margin-left:10px}
+.dot.unavailable{background:var(--unav)}.dot.busy{background:var(--busy)}
+.dot.pending{background:var(--pending)}.dot.confirmed{background:var(--confirmed)}
+.badge{padding:2px 8px;border-radius:10px;font-size:.8rem;color:#fff}
+.badge.pending{background:var(--pending)}.badge.confirmed{background:var(--confirmed)}
+.badge.done{background:var(--done)}.badge.rejected,.badge.cancelled{background:var(--unav)}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:6px 0}
+td,th{border-bottom:1px solid var(--line);padding:6px;text-align:left}
+td.num,th.num{text-align:right}
+tr.total td{font-weight:bold;border-top:2px solid var(--text)}
+dialog{border:0;border-radius:12px;padding:20px;width:min(640px,95vw);max-height:90vh}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+h3{margin:16px 0 4px}
+.booking-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.admin-only{display:none}body.is-admin .admin-only{display:inline-block}
+.fc .fc-event{cursor:pointer}
