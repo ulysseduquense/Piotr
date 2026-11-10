@@ -320,7 +320,12 @@ app.post('/api/bookings/:id/photos', auth, async c => {
   try {
     r = await db.prepare(`INSERT INTO photos(booking_id,expense_id,r2_key,filename,content_type,size,caption,uploaded_by)
       VALUES(?,?,?,?,?,?,?,?)`).bind(id, expenseId, key, filename, contentType, bytes.length, caption, user.id).run();
-  } catch (e) { await c.env.PHOTOS.delete(key); throw e; } // pas d'objet orphelin dans R2
+  } catch (e) {
+    await c.env.PHOTOS.delete(key); // pas d'objet orphelin dans R2
+    // Achat supprimé entre le contrôle et l'INSERT (clé étrangère) : même réponse que pour un achat inconnu, pas une erreur 500.
+    if (expenseId !== null && /FOREIGN KEY constraint failed/.test(String(e?.message))) return err(c, 'EXPENSE_MISMATCH');
+    throw e;
+  }
   return c.json(photoJSON(await db.prepare('SELECT * FROM photos WHERE id=?').bind(r.meta.last_row_id).first()));
 });
 // Lecture : admin ou client de l'intervention ; sinon 404 (sans révéler l'existence). ?download=1 → pièce jointe.

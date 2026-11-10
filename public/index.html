@@ -142,7 +142,8 @@
   </div>
 </dialog>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!-- popover="manual" : le toast passe par la « top layer », donc reste visible par-dessus un dialogue modal -->
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>
 <script src="i18n/fr.js"></script>
 <script src="i18n/pl.js"></script>
 <script src="app.js"></script>

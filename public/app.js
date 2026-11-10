@@ -132,12 +132,21 @@ function showError(sel, err) {
 function clearError(sel) { const el = $(sel); delete el.dataset.i18n; el.textContent = ''; }
 
 // ---------- Toast ----------
-let toastTimer, toastLast = null;
+let toastTimer, toastHideTimer, toastLast = null;
+// Le toast est un popover (« top layer ») : un simple z-index resterait caché derrière un dialogue modal
+// (fiche d'intervention, visionneuse), surtout sur téléphone où la fiche couvre tout le bas de l'écran.
+// Il est rouvert à chaque affichage pour repasser au-dessus d'un dialogue ouvert entre-temps.
 function showToast(text) {
   const el = $('#toast');
+  clearTimeout(toastTimer); clearTimeout(toastHideTimer);
+  try {
+    if (el.showPopover) { if (el.matches(':popover-open')) el.hidePopover(); el.showPopover(); el.getBoundingClientRect(); /* style calculé avant .show : le fondu joue */ }
+  } catch { /* navigateur sans Popover API : le toast reste un élément fixe classique */ }
   el.textContent = text; el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3400);
+  toastTimer = setTimeout(() => {
+    el.classList.remove('show');
+    toastHideTimer = setTimeout(() => { try { if (el.matches(':popover-open')) el.hidePopover(); } catch { /* idem */ } }, 220);
+  }, 3400);
 }
 // toastLast recalcule le texte au changement de langue (retoast) tant que la notification est visible.
 const toastFn = fn => { toastLast = fn; showToast(fn()); };
