@@ -127,13 +127,15 @@ const activityJSON = ({ id, name, owner_name, default_rate, invite_code, members
 // Code d'invitation : 20 caractères hexadécimaux aléatoires ; le régénérer invalide l'ancien lien.
 const inviteCode = () => hex(crypto.getRandomValues(new Uint8Array(10)));
 // Nom (2 à 60 caractères, espaces retirés) et tarif (≥ 0) d'une activité → [code d'erreur] ou [null, { name, rate }].
-// À la création, le nom est requis et le tarif vaut 25 par défaut ; en modification, les champs absents sont conservés.
+// À la création, le nom est requis et le tarif vaut 25 par défaut ; en modification, les champs absents sont conservés
+// tels quels, sans être revalidés : un nom hérité de la migration (nom d'utilisateur hors bornes) ne doit pas bloquer
+// la modification du seul tarif.
 function activityFields(body, current) {
-  const name = body.name != null || !current ? [...str(body.name).trim()] : [...current.name];
-  if (name.length < 2 || name.length > 60) return ['ACTIVITY_INVALID'];
+  const setName = body.name != null || !current, name = setName ? [...str(body.name).trim()] : null;
+  if (setName && (name.length < 2 || name.length > 60)) return ['ACTIVITY_INVALID'];
   const rate = body.default_rate != null ? num(body.default_rate) : current ? current.default_rate : 25;
   if (rate === null || rate < 0) return ['RATE_INVALID'];
-  return [null, { name: name.join(''), rate }];
+  return [null, { name: setName ? name.join('') : current.name, rate }];
 }
 // Intergiciels des routes /api/activities/:aid/* : membre (rôle dans c.get('role'), id dans c.get('aid')) ; prestataire.
 const inActivity = async (c, next) => {
