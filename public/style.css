@@ -81,10 +81,11 @@ img { max-width: 100%; }
 .act-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
 .menu {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; display: grid; gap: 2px;
+  grid-template-columns: minmax(0, 1fr); /* la colonne ne s'élargit pas au nom d'activité le plus long : il se tronque (…) */
   min-width: 250px; max-width: min(340px, calc(100vw - 32px)); padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
 }
-.menu button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 40px; padding: 6px 10px; border-radius: 6px; text-align: left; font-size: 0.9rem; }
+.menu button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-width: 0; min-height: 40px; padding: 6px 10px; border-radius: 6px; text-align: left; font-size: 0.9rem; }
 .menu button > svg { color: var(--accent); flex: none; }
 .menu-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .menu-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -445,7 +446,9 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   main.wrap { padding-top: 20px; padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   .topbar .wrap { height: auto; min-height: 52px; gap: 0 12px; flex-wrap: wrap; justify-content: space-between; }
   .brand, .user { height: 52px; }
-  .user { gap: 10px; }
+  /* flex-basis 0 : avec un prénom long, le bloc reste sur la ligne du logo (tronqué) au lieu de passer sur une troisième ligne
+     (le retour à la ligne de flex-wrap se décide sur la largeur « max-content », avant tout rétrécissement). */
+  .user { gap: 10px; flex: 1 1 0; justify-content: flex-end; }
   /* Activité ouverte sur sa propre ligne, sous le logo (pas la place à côté du sélecteur de langue) */
   .act { order: 3; flex-basis: 100%; min-height: 36px; margin-top: -8px; padding-bottom: 6px; }
   .act:not(:empty)::before { display: none; }

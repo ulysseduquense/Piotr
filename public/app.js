@@ -868,7 +868,7 @@ function drawBookings() {
     <button type="button" class="item" data-id="${b.id}">
       <div class="item-main">
         <div class="item-title">${esc(b.description || t('booking.default_title'))}</div>
-        <div class="item-sub">${fmtRange(b.start, b.end)}${owner ? ' · ' + esc(b.client_name) : ''}</div>
+        <div class="item-sub">${fmtRange(b.start, b.end)}${owner ? ' ·\u00a0' + esc(b.client_name) : ''}</div>
       </div>
       <div class="item-side">${pill(b.status)}<span class="item-total">${eur(b.totals.total)}</span></div>
     </button>`).join('')}</div>`
