@@ -251,7 +251,7 @@ window.I18N.fr = {
   'err.EXPENSE_MISMATCH': 'Cet achat n’appartient pas à cette intervention',
   'err.CAPTION_INVALID': 'Légende trop longue (200 caractères max.)',
   'err.ACTIVITY_INVALID': 'Nom d’activité invalide (2 à 60 caractères)',
-  'err.INVITE_INVALID': 'Lien d’invitation invalide',
+  'err.INVITE_INVALID': 'Lien ou code d’invitation invalide',
   'err.CANNOT_REMOVE_OWNER': 'Impossible de retirer le prestataire',
   // Côté client uniquement : réponse sans message / serveur injoignable.
   'err.UNKNOWN': 'Erreur',

@@ -259,7 +259,7 @@ window.I18N.pl = {
   'err.EXPENSE_MISMATCH': 'Ten zakup nie należy do tego zlecenia',
   'err.CAPTION_INVALID': 'Podpis jest za długi (maks. 200 znaków)',
   'err.ACTIVITY_INVALID': 'Nieprawidłowa nazwa działalności (2–60 znaków)',
-  'err.INVITE_INVALID': 'Nieprawidłowy link z zaproszeniem',
+  'err.INVITE_INVALID': 'Nieprawidłowy link lub kod zaproszenia',
   'err.CANNOT_REMOVE_OWNER': 'Nie można usunąć wykonawcy',
   // Côté client uniquement : réponse sans message / serveur injoignable.
   'err.UNKNOWN': 'Błąd',

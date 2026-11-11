@@ -33,7 +33,7 @@ const ERRORS = {
   SERVER_ERROR: [500, 'Erreur serveur'], FILE_MISSING: [400, 'Fichier manquant'], FILE_TYPE: [400, 'Format d’image non pris en charge'],
   FILE_TOO_LARGE: [413, 'Fichier trop volumineux (10 Mo max.)'], EXPENSE_MISMATCH: [400, 'Cet achat n’appartient pas à cette intervention'],
   CAPTION_INVALID: [400, 'Légende trop longue (200 caractères max.)'],
-  ACTIVITY_INVALID: [400, 'Nom d’activité invalide (2 à 60 caractères)'], INVITE_INVALID: [404, 'Lien d’invitation invalide'],
+  ACTIVITY_INVALID: [400, 'Nom d’activité invalide (2 à 60 caractères)'], INVITE_INVALID: [404, 'Lien ou code d’invitation invalide'],
   CANNOT_REMOVE_OWNER: [400, 'Impossible de retirer le prestataire'],
 };
 const err = (c, code) => c.json({ error: ERRORS[code][1], code }, ERRORS[code][0]);
@@ -243,7 +243,7 @@ app.get('/api/activities/:aid/calendar', auth, inActivity, async c => {
 const INSERT_BOOKING_SQL = `INSERT INTO bookings(activity_id,client_id,start,end,description,address,hourly_rate)
   SELECT ?1,?2,?3,?4,?5,?6,?7
   WHERE NOT EXISTS (SELECT 1 FROM unavailabilities WHERE activity_id=?1 AND start < ?4 AND end > ?3)
-    AND NOT EXISTS (SELECT 1 FROM bookings WHERE activity_id=?1 AND status IN ('pending','confirmed') AND start < ?4 AND end > ?3)`;
+    AND NOT EXISTS (SELECT 1 FROM bookings WHERE activity_id=?1 AND status IN ('pending','confirmed','done') AND start < ?4 AND end > ?3)`;
 
 // --- Réservations ----------------------------------------------------------
 const BOOKING_SQL = `SELECT b.*, u.name client_name, u.email client_email, u.phone client_phone
@@ -318,6 +318,7 @@ app.patch('/api/bookings/:id', auth, async c => {
   const allowed = ['pending', 'confirmed', 'rejected', 'cancelled', 'done'];
   // `!= null` (et non une simple vérité) : un statut '' ou false serait sinon enregistré tel quel.
   if (body.status != null && !allowed.includes(body.status)) return err(c, 'STATUS_INVALID');
+  if (body.hourly_rate !== undefined && (num(body.hourly_rate) === null || num(body.hourly_rate) < 0)) return err(c, 'RATE_INVALID');
   if ((body.start && !isISO(body.start)) || (body.end && !isISO(body.end))) return err(c, 'SLOT_INVALID');
   const start = body.start ? toUTC(body.start) : b.start, end = body.end ? toUTC(body.end) : b.end;
   if ((body.start || body.end) && Date.parse(end) <= Date.parse(start)) return err(c, 'SLOT_INVALID');
