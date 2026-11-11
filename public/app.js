@@ -577,7 +577,9 @@ function openNewDialog(start, end) {
 
 function openUnavailable(ev) {
   openDialog({
-    title: esc(ev.title),
+    // titre recalculé depuis les champs bruts : « ev.title » de l'objet FullCalendar reçu au clic n'est pas mis à jour
+    // par le changement de langue (applyLang), le dialogue resterait dans l'ancienne langue.
+    title: esc(eventTitle(ev.extendedProps)),
     render: () => openUnavailable(ev),
     body: `
       <dl class="meta"><dt>${t('booking.when')}</dt><dd>${fmtRange(ev.start, ev.end)}</dd></dl>
