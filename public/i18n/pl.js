@@ -4,7 +4,9 @@
 // other (fractions : « 1,5 zdjęcia ») ; t() retombe sur .other puis sur la clé nue.
 // Glossaire : créneau → termin · demande → zgłoszenie · intervention → zlecenie · plage (admin) → termin ·
 // période bloquée → blokada · indisponible → niedostępny · occupé → zajęte · tarif horaire → stawka godzinowa ·
-// main-d’œuvre → robocizna · achat → zakup · justificatif → paragon · heures → godziny (« h » dans les totaux).
+// main-d’œuvre → robocizna · achat → zakup · justificatif → paragon · heures → godziny (« h » dans les totaux) ·
+// activité → działalność · prestataire → usługodawca · client → klient · lien d'invitation → link z zaproszeniem.
+// Les textes des écrans « activités » (onboarding, join, Mes activités, Gestion) sont une première traduction à relire.
 window.I18N = window.I18N || {};
 window.I18N.pl = {
   // --- Application ---------------------------------------------------------
@@ -38,7 +40,51 @@ window.I18N.pl = {
   'nav.bookings.admin': 'Zlecenia',
   'nav.admin': 'Zarządzanie',
   'nav.logout': 'Wyloguj się',
-  'nav.user_admin': '{name} (administrator)',
+  'nav.activities': 'Moje działalności',
+  'nav.activity_switch': 'Zmień działalność',
+
+  // --- Rôles dans une activité (étiquettes) ---------------------------------------
+  'role.owner': 'usługodawca',
+  'role.client': 'klient',
+
+  // --- Premier écran (compte sans activité) --------------------------------------
+  'onboarding.title': 'Witaj, {name}',
+  'onboarding.hint': 'Na początek utwórz własną działalność albo dołącz do działalności usługodawcy.',
+  'onboarding.create.title': 'Oferuję swoje usługi',
+  'onboarding.create.text': 'Utwórz działalność, a potem udostępnij klientom link z zaproszeniem.',
+  'onboarding.join.title': 'Mam zaproszenie',
+  'onboarding.join.text': 'Wklej link lub kod otrzymany od usługodawcy.',
+
+  // --- Activités : création, adhésion par code, liste ----------------------------
+  'activity.name': 'Nazwa działalności',
+  'activity.name_placeholder': 'np. Piotr – ogród',
+  'activity.rate': 'Domyślna stawka godzinowa',
+  'activity.create': 'Utwórz działalność',
+  'activity.create.title': 'Utwórz działalność',
+  'activity.join.title': 'Dołącz z kodem',
+  'activity.join.label': 'Link lub kod zaproszenia',
+  'activity.join.placeholder': 'https://…/join/… lub sam kod',
+  'activity.join': 'Dołącz',
+  'acts.title': 'Moje działalności',
+  'acts.hint': 'Twoje działalności – jako usługodawca lub jako klient. Kliknij działalność, aby ją otworzyć.',
+  'acts.pick': 'Wybierz działalność, którą chcesz otworzyć.',
+  'acts.empty': 'Na razie brak działalności.',
+  'acts.owner_sub.one': '{count} klient',
+  'acts.owner_sub.few': '{count} klientów',
+  'acts.owner_sub.many': '{count} klientów',
+  'acts.owner_sub.other': '{count} klienta',
+  'acts.client_sub': 'Usługodawca: {name}',
+
+  // --- Page d'un lien d'invitation (/join/<code>) ---------------------------------
+  'join.loading': 'Ładowanie…',
+  'join.intro': '{owner} zaprasza Cię do dołączenia do „{activity}”',
+  'join.auth_hint': 'Utwórz konto lub zaloguj się, aby dołączyć.',
+  'join.button': 'Dołącz',
+  'join.logged_as': 'Zalogowano jako {name}.',
+  'join.switch_account': 'Zmień konto',
+  'join.invalid.title': 'Nieprawidłowy link z zaproszeniem',
+  'join.invalid.text': 'Ten link nie istnieje lub został zastąpiony przez usługodawcę. Poproś o nowy link.',
+  'join.home': 'Przejdź do strony głównej',
 
   // --- Calendrier ----------------------------------------------------------------
   'cal.title': 'Kalendarz',
@@ -138,7 +184,6 @@ window.I18N.pl = {
   'photos.prev': 'Poprzednie zdjęcie',
   'photos.next': 'Następne zdjęcie',
   'photos.by_you': 'Dodane przez Ciebie',
-  'photos.by_admin': 'Dodał Piotr',
   'photos.by': 'Dodał(a) {name}',
   'photos.download': 'Pobierz',
   'photos.delete': 'Usuń',
@@ -164,21 +209,34 @@ window.I18N.pl = {
   'form.delete_period': 'Usuń tę blokadę',
   'form.per_hour_suffix': '€ / h',
 
-  // --- Gestion (admin) -----------------------------------------------------------
+  // --- Gestion (prestataire) : activité, invitation, clients ---------------------
   'admin.title': 'Zarządzanie',
-  'admin.rate.title': 'Domyślna stawka godzinowa',
-  'admin.rate.label': 'Stawka',
+  'admin.activity.title': 'Działalność',
+  'admin.rate.label': 'Domyślna stawka godzinowa',
   'admin.rate.save': 'Zapisz',
-  'admin.rate.hint': 'Stosowana do nowych zgłoszeń. Później można ją zmienić osobno dla każdego zlecenia.',
+  'admin.rate.hint': 'Stawka dotyczy nowych zgłoszeń; dla każdego zlecenia można ją zmienić osobno.',
+  'admin.invite.title': 'Zaproszenie',
+  'admin.invite.hint': 'Wyślij ten link klientom: utworzą konto (lub zalogują się) i dołączą do Twojej działalności.',
+  'admin.invite.link': 'Link z zaproszeniem',
+  'admin.invite.copy': 'Kopiuj',
+  'admin.invite.share': 'Udostępnij',
+  'admin.invite.share_text': '{owner} zaprasza Cię do dołączenia do „{activity}” w aplikacji Piotr.',
+  'admin.invite.regenerate': 'Wygeneruj nowy link',
+  'admin.invite.regenerate_confirm': 'Powstanie nowy link, a dotychczasowe linki przestaną działać. Kontynuować?',
+  'admin.invite.regenerate_yes': 'Tak, wygeneruj',
   'admin.clients.title': 'Klienci',
   'admin.clients.name': 'Imię i nazwisko',
   'admin.clients.email': 'E-mail',
   'admin.clients.phone': 'Telefon',
-  'admin.clients.empty': 'Na razie brak zarejestrowanych klientów.',
+  'admin.clients.joined': 'Od',
+  'admin.clients.remove': 'Usuń',
+  'admin.clients.remove_confirm': 'Usunąć {name}? Ta osoba straci dostęp do działalności; jej zgłoszenia pozostaną widoczne dla Ciebie.',
+  'admin.clients.remove_yes': 'Tak, usuń',
+  'admin.clients.empty': 'Na razie brak klientów. Udostępnij link z zaproszeniem.',
 
   // --- Erreurs serveur (clé = code renvoyé par l'API) ----------------------------
   'err.NOT_LOGGED_IN': 'Wymagane logowanie',
-  'err.ADMIN_ONLY': 'Tylko dla administratora',
+  'err.ADMIN_ONLY': 'Tylko dla usługodawcy',
   'err.CLIENT_CANCEL_ONLY': 'Możesz tylko anulować swoje zgłoszenie',
   'err.NOT_FOUND': 'Nie znaleziono',
   'err.REGISTER_INVALID': 'Wymagane: imię i nazwisko, e-mail i hasło (min. 6 znaków)',
@@ -198,6 +256,9 @@ window.I18N.pl = {
   'err.FILE_TOO_LARGE': 'Plik jest za duży (maks. 10 MB)',
   'err.EXPENSE_MISMATCH': 'Ten zakup nie należy do tego zlecenia',
   'err.CAPTION_INVALID': 'Podpis jest za długi (maks. 200 znaków)',
+  'err.ACTIVITY_INVALID': 'Nieprawidłowa nazwa działalności (od 2 do 60 znaków)',
+  'err.INVITE_INVALID': 'Nieprawidłowy link z zaproszeniem',
+  'err.CANNOT_REMOVE_OWNER': 'Nie można usunąć usługodawcy',
   // Côté client uniquement : réponse sans message / serveur injoignable.
   'err.UNKNOWN': 'Błąd',
   'err.OFFLINE': 'Brak połączenia z serwerem. Spróbuj ponownie za chwilę.',
@@ -215,12 +276,19 @@ window.I18N.pl = {
   'toast.saved': 'Zapisano.',
   'toast.work_added': 'Dodano godziny.',
   'toast.expense_added': 'Dodano zakup.',
-  'toast.rate_saved': 'Zapisano stawkę.',
   'toast.photos_added.one': 'Dodano zdjęcie.',
   'toast.photos_added.few': 'Dodano {count} zdjęcia.',
   'toast.photos_added.many': 'Dodano {count} zdjęć.',
   'toast.photos_added.other': 'Dodano {count} zdjęcia.',
   'toast.photo_deleted': 'Usunięto zdjęcie.',
+  'toast.activity_created': 'Utworzono działalność. Link z zaproszeniem znajdziesz w Zarządzaniu.',
+  'toast.activity_saved': 'Zapisano działalność.',
+  'toast.joined': 'Dołączono do „{name}”.',
+  'toast.own_activity': 'Jesteś usługodawcą w „{name}”.',
+  'toast.link_copied': 'Skopiowano link.',
+  'toast.copy_failed': 'Nie udało się skopiować: zaznacz link i skopiuj go ręcznie.',
+  'toast.link_regenerated': 'Utworzono nowy link. Dotychczasowe linki już nie działają.',
+  'toast.member_removed': 'Usunięto klienta.',
 
   // --- Confirmations -------------------------------------------------------------
   'confirm.cancel': 'Na pewno anulować?',

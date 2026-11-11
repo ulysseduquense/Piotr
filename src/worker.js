@@ -11,11 +11,13 @@ const hex = bytes => [...bytes].map(b => b.toString(16).padStart(2, '0')).join('
 const unhex = s => Uint8Array.from(s.match(/../g) || [], h => parseInt(h, 16));
 const isISO = s => typeof s === 'string' && !isNaN(Date.parse(s));
 const toUTC = s => new Date(s).toISOString();
-const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+// Nombre fini depuis un nombre ou une chaîne numérique non vide, sinon null : Number() seul ferait de "", " ", true ou [] un 0 ou un 1 valide.
+const num = v => { if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
 // Champ texte libre : la valeur si c'est une chaîne, sinon la valeur par défaut (un objet lié tel quel ferait échouer D1 → 500).
 const str = (v, d = '') => typeof v === 'string' ? v : d;
-// Paramètre d'URL numérique ; 0 (id inexistant) si invalide, pour ne jamais lier NaN dans D1.
-const idParam = (c, name = 'id') => { const n = Number(c.req.param(name)); return Number.isInteger(n) ? n : 0; };
+// Paramètre d'URL : entier positif en écriture canonique (« 1e0 », « 0x1 », « +1 », « 01 »… refusés), sinon 0 (id inexistant),
+// pour ne jamais lier NaN dans D1.
+const idParam = (c, name = 'id') => /^[1-9][0-9]{0,14}$/.test(c.req.param(name)) ? Number(c.req.param(name)) : 0;
 // Corps JSON ; {} si absent, invalide ou pas un objet (équivalent de `req.body || {}`).
 const json = c => c.req.json().then(v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), () => ({}));
 
@@ -141,9 +143,9 @@ const inActivity = async (c, next) => {
   await next();
 };
 const ownerOnly = (c, next) => c.get('role') === 'owner' ? next() : err(c, 'ADMIN_ONLY');
-// Rôle de l'utilisateur dans l'activité d'une ligne (réservation, indisponibilité, photo…) ; null si ligne absente ou non-membre.
+// Rôle de l'utilisateur dans l'activité d'une ligne (indisponibilité…) ; null si ligne absente ou non-membre.
 const roleOf = async (db, row, user) => row ? await member(db, row.activity_id, user.id) : null;
-// Réponse d'erreur pour une action de prestataire (404 si inconnu / non-membre, 403 si client), ou null si autorisé.
+// Réponse d'erreur pour une action de prestataire (404 si inconnu / invisible, 403 si client), ou null si autorisé.
 const ownerGate = (c, role) => !role ? err(c, 'NOT_FOUND') : role !== 'owner' ? err(c, 'ADMIN_ONLY') : null;
 
 // Compte + ses activités ('owner' > 'client', donc le tri décroissant place les activités dont on est prestataire en tête).
@@ -323,9 +325,11 @@ app.patch('/api/bookings/:id', auth, async c => {
   return c.json(await bookingDetail(db, b.id));
 });
 
-// Heures prestées et achats (prestataire de l'activité de la réservation uniquement)
+// Heures prestées et achats : prestataire de l'activité de la réservation uniquement. Même grille que les autres routes
+// d'une réservation : 404 si elle est invisible pour l'utilisateur (autre client, non-membre, inexistante), 403 si c'est
+// le client de l'intervention.
 app.post('/api/bookings/:id/work', auth, async c => {
-  const db = c.env.DB, id = idParam(c), gate = ownerGate(c, await roleOf(db, await loadBooking(db, id), c.get('user')));
+  const db = c.env.DB, id = idParam(c), gate = ownerGate(c, await bookingAccess(db, await loadBooking(db, id), c.get('user')));
   if (gate) return gate;
   const { date, hours, note } = await json(c), h = num(hours);
   if (typeof date !== 'string' || !date || !h || h <= 0) return err(c, 'WORK_INVALID');
@@ -333,13 +337,13 @@ app.post('/api/bookings/:id/work', auth, async c => {
   return c.json(await bookingDetail(db, id));
 });
 app.delete('/api/work/:id', auth, async c => {
-  const db = c.env.DB, w = await db.prepare('SELECT w.id, b.activity_id FROM work_entries w JOIN bookings b ON b.id=w.booking_id WHERE w.id=?').bind(idParam(c)).first();
-  const gate = ownerGate(c, await roleOf(db, w, c.get('user')));
+  const db = c.env.DB, w = await db.prepare('SELECT w.id, b.activity_id, b.client_id FROM work_entries w JOIN bookings b ON b.id=w.booking_id WHERE w.id=?').bind(idParam(c)).first();
+  const gate = ownerGate(c, await bookingAccess(db, w, c.get('user')));
   if (gate) return gate;
   await db.prepare('DELETE FROM work_entries WHERE id=?').bind(w.id).run(); return c.json({ ok: true });
 });
 app.post('/api/bookings/:id/expenses', auth, async c => {
-  const db = c.env.DB, id = idParam(c), gate = ownerGate(c, await roleOf(db, await loadBooking(db, id), c.get('user')));
+  const db = c.env.DB, id = idParam(c), gate = ownerGate(c, await bookingAccess(db, await loadBooking(db, id), c.get('user')));
   if (gate) return gate;
   const { label, amount } = await json(c), a = num(amount);
   if (typeof label !== 'string' || !label || a === null) return err(c, 'EXPENSE_INVALID');
@@ -348,8 +352,8 @@ app.post('/api/bookings/:id/expenses', auth, async c => {
 });
 // Les photos d'un achat supprimé restent attachées à l'intervention (expense_id remis à NULL par la clé étrangère).
 app.delete('/api/expenses/:id', auth, async c => {
-  const db = c.env.DB, e = await db.prepare('SELECT e.id, b.activity_id FROM expenses e JOIN bookings b ON b.id=e.booking_id WHERE e.id=?').bind(idParam(c)).first();
-  const gate = ownerGate(c, await roleOf(db, e, c.get('user')));
+  const db = c.env.DB, e = await db.prepare('SELECT e.id, b.activity_id, b.client_id FROM expenses e JOIN bookings b ON b.id=e.booking_id WHERE e.id=?').bind(idParam(c)).first();
+  const gate = ownerGate(c, await bookingAccess(db, e, c.get('user')));
   if (gate) return gate;
   await db.prepare('DELETE FROM expenses WHERE id=?').bind(e.id).run(); return c.json({ ok: true });
 });

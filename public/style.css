@@ -67,6 +67,32 @@ img { max-width: 100%; }
 #who { flex: 0 1 auto; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .link { color: var(--muted); font-size: 0.85rem; }
 
+/* ---------- Activité ouverte (barre supérieure) : nom seul, ou sélecteur avec menu ---------- */
+.act { position: relative; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+.act:empty { display: none; }
+.act:not(:empty)::before { content: ""; width: 1px; height: 18px; background: var(--line); margin-right: 16px; flex: none; }
+.act-name { font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.act-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; max-width: 100%; padding: 0 8px; margin-left: -8px; border-radius: 6px; color: var(--ink); }
+.act-btn svg { color: var(--muted); flex: none; }
+.act-btn[aria-expanded="true"] { background: var(--soft); }
+.act-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.menu {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; display: grid; gap: 2px;
+  min-width: 250px; max-width: min(340px, calc(100vw - 32px)); padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.menu button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 40px; padding: 6px 10px; border-radius: 6px; text-align: left; font-size: 0.9rem; }
+.menu button > svg { color: var(--accent); flex: none; }
+.menu-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.menu-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-all { position: relative; margin-top: 7px; color: var(--muted); font-weight: 500; }
+.menu-all::before { content: ""; position: absolute; left: -6px; right: -6px; top: -5px; height: 1px; background: var(--line); }
+.tag {
+  display: inline-flex; align-items: center; padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.02em; line-height: 1.6; white-space: nowrap;
+}
+.tag.owner { color: var(--accent); border-color: rgba(31, 111, 95, .35); }
+
 /* ---------- Sélecteur de langue (FR | PL) : discret, sans cadre ---------- */
 .lang { display: inline-flex; align-items: center; gap: 2px; }
 .lang button {
@@ -139,6 +165,34 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .auth-card .btn { width: 100%; margin-top: 4px; }
 .auth-switch { margin-top: 20px; text-align: center; font-size: 0.88rem; color: var(--muted); }
 .auth-switch button { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Lien d'invitation (/join/<code>) ---------- */
+.join-intro { font-size: 1.05rem; line-height: 1.5; margin-bottom: 16px; }
+.join-intro strong { font-weight: 600; }
+.join-hint { margin-bottom: 22px; }
+.join-card .error { margin-bottom: 8px; }
+.join-card .error:empty { margin: 0; }
+.join-card form { display: grid; gap: 14px; }
+.join-card .join-actions { margin-top: 20px; }
+
+/* ---------- Premier écran : deux cartes (proposer ses services / rejoindre) ---------- */
+.onboarding { max-width: 720px; margin: 3vh auto 0; }
+.onboarding h1 { font-size: 1.6rem; }
+.onboarding > .hint { margin-top: 8px; max-width: 52ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 28px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; transition: border-color .12s; }
+.card.open { border-color: var(--accent); }
+.card-btn { display: grid; gap: 6px; width: 100%; padding: 22px; text-align: left; }
+.card-title { font-weight: 600; font-size: 1.05rem; letter-spacing: -0.01em; }
+.card-text { color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+.card-form { padding: 0 22px 22px; }
+.card-form .form-grid { padding-top: 18px; border-top: 1px dashed var(--line); }
+
+/* ---------- Mes activités ---------- */
+.alist .item[aria-current="true"] .item-title { color: var(--accent); }
+.acts-more { margin-top: 20px; }
+.btn.active { background: var(--soft); border-color: #d8d8d3; }
+.acts-form { margin-top: 12px; max-width: 480px; }
 
 /* ---------- Pastilles & légende ---------- */
 .pill {
@@ -344,8 +398,16 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
    bordure) pour garder le placement en bas de l'écran ; sans Popover API, l'élément reste un bloc fixe ordinaire. */
 .toast[popover] { top: auto; right: auto; margin: 0; border: 0; overflow: visible; }
 
-/* ---------- Clients ---------- */
+/* ---------- Gestion : invitation et clients ---------- */
+.panel .invite-hint { margin: -6px 0 14px; }
+.invite { display: grid; gap: 10px; }
+.invite input { background: var(--soft); border-color: transparent; color: var(--ink); font-size: 0.9rem; text-overflow: ellipsis; }
+.confirm-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.confirm-row:not(:empty) { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
 .clients a { text-decoration: none; color: var(--muted); }
+.clients .remove { font-size: 0.82rem; }
+.clients .joined { color: var(--muted); }
+.clients tr.removing { color: var(--muted); } /* rangée dont le retrait est en cours de confirmation */
 
 /* ---------- Survol (pointeurs précis uniquement, pas de survol collant au toucher) ---------- */
 @media (hover: hover) {
@@ -360,6 +422,11 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   .seg button:hover { color: var(--ink); }
   .item:hover { background: var(--paper); }
   .clients a:hover { color: var(--ink); text-decoration: underline; }
+  .clients .remove:hover { color: var(--danger); }
+  .act-btn:hover { background: var(--soft); }
+  .menu button:hover { background: var(--soft); }
+  .card-btn:hover { background: var(--paper); }
+  .alist .item:hover { background: var(--paper); }
   .rcount:hover { color: var(--ink); border-color: #d8d8d3; background: var(--soft); }
   .photo-btn:hover img { opacity: .9; }
   .lb .icon-btn:hover, .lb-nav:hover { color: var(--paper); background: rgba(251, 251, 250, .18); }
@@ -373,8 +440,14 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   body { font-size: 15px; }
   input, select, textarea { font-size: 16px; }
   main.wrap { padding-top: 20px; padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
-  .topbar .wrap { height: 52px; gap: 12px; justify-content: space-between; }
+  .topbar .wrap { height: auto; min-height: 52px; gap: 0 12px; flex-wrap: wrap; justify-content: space-between; }
+  .brand, .user { height: 52px; }
   .user { gap: 10px; }
+  /* Activité ouverte sur sa propre ligne, sous le logo (pas la place à côté du sélecteur de langue) */
+  .act { order: 3; flex-basis: 100%; min-height: 36px; margin-top: -8px; padding-bottom: 6px; }
+  .act:not(:empty)::before { display: none; }
+  .act-name { max-width: 100%; font-size: 0.92rem; }
+  .menu { max-width: none; right: 0; }
   .lang button { min-width: 44px; min-height: 44px; } /* cible tactile 44 px */
   .auth-lang { top: 4px; right: 8px; }
   .tabs {
@@ -412,6 +485,14 @@ dialog::backdrop { background: rgba(20, 20, 20, .32); }
   .clients td { border: 0; padding: 0; }
   .clients td:first-child { font-weight: 500; }
   .clients td .muted { display: none; } /* pas de tiret orphelin quand le téléphone manque */
+  .clients td.num { text-align: left; }
+  .clients td.num .remove { margin-top: 4px; }
+  .onboarding { margin-top: 8px; }
+  .onboarding h1 { font-size: 1.4rem; }
+  .cards { margin-top: 22px; }
+  .card-btn { padding: 18px 16px; }
+  .card-form { padding: 0 16px 18px; }
+  .acts-more .actions .btn { flex: 1 1 100%; }
   .footer .hint { flex: 1 1 100%; } /* « Confirmer l’annulation ? » sur sa ligne, les deux boutons côte à côte */
   dialog {
     width: 100vw; max-height: calc(100dvh - 20px);

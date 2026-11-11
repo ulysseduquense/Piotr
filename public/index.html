@@ -6,11 +6,13 @@
 <title>Piotr</title>
 <meta name="description" content="" data-i18n-attr="content:app.description">
 <meta name="theme-color" content="#fbfbfa">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!-- Chemins absolus : la page est aussi servie sous /join/<code> (lien d'invitation), où « style.css » relatif
+     pointerait vers /join/style.css, donc vers cette page (not_found_handling « single-page-application »). -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/style.css">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/fr.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/pl.global.min.js"></script>
@@ -18,7 +20,9 @@
 <body>
 <header class="topbar" id="topbar" hidden>
   <div class="wrap">
-    <a class="brand" href="./" data-i18n-attr="aria-label:nav.home"><img src="logo.svg" alt="Piotr" width="62" height="26"></a>
+    <a class="brand" href="/" data-i18n-attr="aria-label:nav.home"><img src="/logo.svg" alt="Piotr" width="62" height="26"></a>
+    <!-- Activité courante : nom seul (une activité) ou sélecteur (≥ 2 activités), rempli par app.js -->
+    <div class="act" id="act"></div>
     <nav class="tabs" id="nav" data-i18n-attr="aria-label:nav.main">
       <button type="button" data-view="calendar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
@@ -44,7 +48,7 @@
 <main class="wrap">
   <section id="auth" class="auth" hidden>
     <div class="lang auth-lang" id="langAuth" role="group"></div>
-    <img class="auth-logo" src="logo.svg" alt="Piotr" width="104" height="44">
+    <img class="auth-logo" src="/logo.svg" alt="Piotr" width="104" height="44">
     <div class="auth-card">
       <h1 id="authTitle" data-i18n="auth.login.title"></h1>
       <form id="authForm">
@@ -57,6 +61,27 @@
       </form>
       <p class="auth-switch"><span id="authQuestion" data-i18n="auth.login.question"></span> <button type="button" id="authToggle" data-i18n="auth.login.switch"></button></p>
     </div>
+  </section>
+
+  <!-- Page d'un lien d'invitation (/join/<code>) : aperçu de l'activité, puis connexion / inscription ou bouton « Rejoindre » -->
+  <section id="join" class="auth" hidden>
+    <div class="lang auth-lang" id="langJoin" role="group"></div>
+    <img class="auth-logo" src="/logo.svg" alt="Piotr" width="104" height="44">
+    <div class="auth-card join-card" id="joinCard"></div>
+  </section>
+
+  <!-- Premier écran d'un compte sans activité -->
+  <section id="onboarding" class="onboarding" hidden>
+    <h1 id="obTitle"></h1>
+    <p class="hint" data-i18n="onboarding.hint"></p>
+    <div class="cards" id="obCards"></div>
+  </section>
+
+  <!-- Mes activités : liste (sélecteur), création, adhésion par code -->
+  <section id="activities" hidden>
+    <div class="view-head"><div><h1 data-i18n="acts.title"></h1><p class="hint" id="actsHint" data-i18n="acts.hint"></p></div></div>
+    <div id="actList"></div>
+    <div class="acts-more" id="actsMore"></div>
   </section>
 
   <section id="calendar" hidden>
@@ -97,11 +122,13 @@
     <div id="bookingList"></div>
   </section>
 
+  <!-- Gestion (prestataire) : activité et tarif, lien d'invitation, clients -->
   <section id="admin" hidden>
     <div class="view-head"><div><h1 data-i18n="admin.title"></h1></div></div>
     <div class="panel">
-      <h3 data-i18n="admin.rate.title"></h3>
-      <form id="rateForm" class="inline">
+      <h3 data-i18n="admin.activity.title"></h3>
+      <form id="actForm" class="inline">
+        <label class="field" style="flex:2 1 220px"><span data-i18n="activity.name"></span><input name="name" required minlength="2" maxlength="60" autocomplete="off"></label>
         <label class="field" style="flex:0 1 180px"><span data-i18n="admin.rate.label"></span>
           <span class="suffix-wrap"><input name="default_rate" type="number" step="0.01" min="0" inputmode="decimal" required><span class="suffix" data-i18n="form.per_hour_suffix"></span></span>
         </label>
@@ -110,7 +137,20 @@
       <p class="hint" data-i18n="admin.rate.hint"></p>
     </div>
     <div class="panel">
-      <h3 data-i18n="admin.clients.title"></h3>
+      <h3 data-i18n="admin.invite.title"></h3>
+      <p class="hint invite-hint" data-i18n="admin.invite.hint"></p>
+      <div class="invite">
+        <input id="inviteLink" readonly data-i18n-attr="aria-label:admin.invite.link">
+        <div class="actions">
+          <button type="button" class="btn" id="copyBtn" data-i18n="admin.invite.copy"></button>
+          <button type="button" class="btn" id="shareBtn" data-i18n="admin.invite.share" hidden></button>
+          <button type="button" class="btn ghost" id="regenBtn" data-i18n="admin.invite.regenerate"></button>
+        </div>
+      </div>
+      <div class="confirm-row" id="regenZone"></div>
+    </div>
+    <div class="panel">
+      <h3 id="clientsTitle" data-i18n="admin.clients.title"></h3>
       <div id="clientList"></div>
     </div>
   </section>
@@ -144,8 +184,8 @@
 
 <!-- popover="manual" : le toast passe par la « top layer », donc reste visible par-dessus un dialogue modal -->
 <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>
-<script src="i18n/fr.js"></script>
-<script src="i18n/pl.js"></script>
-<script src="app.js"></script>
+<script src="/i18n/fr.js"></script>
+<script src="/i18n/pl.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>

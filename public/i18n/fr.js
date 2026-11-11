@@ -3,6 +3,8 @@
 // Les valeurs peuvent contenir des paramètres nommés entre accolades : {name}, {hours}, {rate}, {total}…
 // Pluriels : clés jumelles suffixées .one / .few / .many / .other ; t(clé, { count }) choisit la forme
 // (Intl.PluralRules) et retombe sur .other puis sur la clé nue.
+// Vocabulaire : activité (un prestataire et ses clients), prestataire (créateur de l'activité), client, lien d'invitation.
+// Les clés suffixées .admin désignent le prestataire de l'activité ouverte (le rôle dépend de l'activité, pas du compte).
 window.I18N = window.I18N || {};
 window.I18N.fr = {
   // --- Application ---------------------------------------------------------
@@ -36,7 +38,49 @@ window.I18N.fr = {
   'nav.bookings.admin': 'Interventions',
   'nav.admin': 'Gestion',
   'nav.logout': 'Déconnexion',
-  'nav.user_admin': '{name} (administrateur)',
+  'nav.activities': 'Mes activités',
+  'nav.activity_switch': 'Changer d’activité',
+
+  // --- Rôles dans une activité (étiquettes) ---------------------------------------
+  'role.owner': 'prestataire',
+  'role.client': 'client',
+
+  // --- Premier écran (compte sans activité) --------------------------------------
+  'onboarding.title': 'Bienvenue, {name}',
+  'onboarding.hint': 'Pour commencer, créez votre activité ou rejoignez celle d’un prestataire.',
+  'onboarding.create.title': 'Je propose mes services',
+  'onboarding.create.text': 'Créez votre activité, puis partagez votre lien d’invitation à vos clients.',
+  'onboarding.join.title': 'J’ai reçu une invitation',
+  'onboarding.join.text': 'Collez le lien ou le code reçu du prestataire.',
+
+  // --- Activités : création, adhésion par code, liste ----------------------------
+  'activity.name': 'Nom de l’activité',
+  'activity.name_placeholder': 'ex. Piotr – jardinage',
+  'activity.rate': 'Tarif horaire par défaut',
+  'activity.create': 'Créer l’activité',
+  'activity.create.title': 'Créer une activité',
+  'activity.join.title': 'Rejoindre avec un code',
+  'activity.join.label': 'Lien ou code d’invitation',
+  'activity.join.placeholder': 'https://…/join/… ou le code',
+  'activity.join': 'Rejoindre',
+  'acts.title': 'Mes activités',
+  'acts.hint': 'Vos activités, comme prestataire ou comme client. Cliquez sur une activité pour l’ouvrir.',
+  'acts.pick': 'Choisissez l’activité à ouvrir.',
+  'acts.empty': 'Aucune activité pour le moment.',
+  'acts.owner_sub.one': '{count} client',
+  'acts.owner_sub.other': '{count} clients',
+  'acts.client_sub': 'Prestataire : {name}',
+
+  // --- Page d'un lien d'invitation (/join/<code>) ---------------------------------
+  'join.loading': 'Chargement…',
+  'join.intro': '{owner} vous invite à rejoindre «\u00a0{activity}\u00a0»',
+  'join.auth_hint': 'Créez un compte ou connectez-vous pour rejoindre l’activité.',
+  'join.button': 'Rejoindre',
+  'join.logged_as': 'Connecté en tant que {name}.',
+  'join.switch_account': 'Changer de compte',
+  'join.invalid.title': 'Lien d’invitation invalide',
+  'join.invalid.text': 'Ce lien n’existe pas ou a été remplacé par le prestataire. Demandez-lui un nouveau lien.',
+  'join.home': 'Aller à l’accueil',
 
   // --- Calendrier ----------------------------------------------------------------
   'cal.title': 'Calendrier',
@@ -134,7 +178,6 @@ window.I18N.fr = {
   'photos.prev': 'Photo précédente',
   'photos.next': 'Photo suivante',
   'photos.by_you': 'Ajoutée par vous',
-  'photos.by_admin': 'Ajoutée par Piotr',
   'photos.by': 'Ajoutée par {name}',
   'photos.download': 'Télécharger',
   'photos.delete': 'Supprimer',
@@ -160,21 +203,34 @@ window.I18N.fr = {
   'form.delete_period': 'Supprimer cette période',
   'form.per_hour_suffix': '€ / h',
 
-  // --- Gestion (admin) -----------------------------------------------------------
+  // --- Gestion (prestataire) : activité, invitation, clients ---------------------
   'admin.title': 'Gestion',
-  'admin.rate.title': 'Tarif horaire par défaut',
-  'admin.rate.label': 'Tarif',
+  'admin.activity.title': 'Activité',
+  'admin.rate.label': 'Tarif horaire par défaut',
   'admin.rate.save': 'Enregistrer',
-  'admin.rate.hint': 'Appliqué aux nouvelles demandes. Modifiable ensuite pour chaque intervention.',
+  'admin.rate.hint': 'Le tarif s’applique aux nouvelles demandes ; il reste modifiable pour chaque intervention.',
+  'admin.invite.title': 'Invitation',
+  'admin.invite.hint': 'Envoyez ce lien à vos clients : ils créent un compte (ou se connectent) et rejoignent votre activité.',
+  'admin.invite.link': 'Lien d’invitation',
+  'admin.invite.copy': 'Copier',
+  'admin.invite.share': 'Partager',
+  'admin.invite.share_text': '{owner} vous invite à rejoindre « {activity} » sur Piotr.',
+  'admin.invite.regenerate': 'Régénérer le lien',
+  'admin.invite.regenerate_confirm': 'Un nouveau lien sera créé et les anciens liens cesseront de fonctionner. Continuer ?',
+  'admin.invite.regenerate_yes': 'Oui, régénérer',
   'admin.clients.title': 'Clients',
   'admin.clients.name': 'Nom',
   'admin.clients.email': 'E-mail',
   'admin.clients.phone': 'Téléphone',
-  'admin.clients.empty': 'Aucun client inscrit pour le moment.',
+  'admin.clients.joined': 'Depuis le',
+  'admin.clients.remove': 'Retirer',
+  'admin.clients.remove_confirm': 'Retirer {name} ? Cette personne perdra l’accès à l’activité ; ses demandes restent visibles pour vous.',
+  'admin.clients.remove_yes': 'Oui, retirer',
+  'admin.clients.empty': 'Aucun client pour le moment. Partagez votre lien d’invitation.',
 
   // --- Erreurs serveur (clé = code renvoyé par l'API) ----------------------------
   'err.NOT_LOGGED_IN': 'Non connecté',
-  'err.ADMIN_ONLY': 'Réservé à l’administrateur',
+  'err.ADMIN_ONLY': 'Réservé au prestataire',
   'err.CLIENT_CANCEL_ONLY': 'Vous pouvez uniquement annuler votre demande',
   'err.NOT_FOUND': 'Introuvable',
   'err.REGISTER_INVALID': 'Nom, e-mail et mot de passe (6 caractères min.) requis',
@@ -194,6 +250,9 @@ window.I18N.fr = {
   'err.FILE_TOO_LARGE': 'Fichier trop volumineux (10 Mo max.)',
   'err.EXPENSE_MISMATCH': 'Cet achat n’appartient pas à cette intervention',
   'err.CAPTION_INVALID': 'Légende trop longue (200 caractères max.)',
+  'err.ACTIVITY_INVALID': 'Nom d’activité invalide (2 à 60 caractères)',
+  'err.INVITE_INVALID': 'Lien d’invitation invalide',
+  'err.CANNOT_REMOVE_OWNER': 'Impossible de retirer le prestataire',
   // Côté client uniquement : réponse sans message / serveur injoignable.
   'err.UNKNOWN': 'Erreur',
   'err.OFFLINE': 'Serveur injoignable. Réessayez dans un instant.',
@@ -211,10 +270,17 @@ window.I18N.fr = {
   'toast.saved': 'Enregistré.',
   'toast.work_added': 'Heures ajoutées.',
   'toast.expense_added': 'Achat ajouté.',
-  'toast.rate_saved': 'Tarif enregistré.',
   'toast.photos_added.one': 'Photo ajoutée.',
   'toast.photos_added.other': '{count} photos ajoutées.',
   'toast.photo_deleted': 'Photo supprimée.',
+  'toast.activity_created': 'Activité créée. Partagez votre lien d’invitation depuis Gestion.',
+  'toast.activity_saved': 'Activité enregistrée.',
+  'toast.joined': 'Vous avez rejoint « {name} ».',
+  'toast.own_activity': 'Vous êtes le prestataire de « {name} ».',
+  'toast.link_copied': 'Lien copié.',
+  'toast.copy_failed': 'Copie impossible : sélectionnez le lien et copiez-le.',
+  'toast.link_regenerated': 'Nouveau lien créé. Les anciens liens ne fonctionnent plus.',
+  'toast.member_removed': 'Client retiré.',
 
   // --- Confirmations -------------------------------------------------------------
   'confirm.cancel': 'Confirmer l’annulation ?',

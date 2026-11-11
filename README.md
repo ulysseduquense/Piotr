@@ -12,7 +12,7 @@ Tout (calendrier, indisponibilités, réservations, tarif, membres) est rattach�
 
 ## API
 
-Authentification par cookie de session `sid`. Un non-membre d’une activité reçoit **404** sur toutes ses routes (son existence n’est jamais révélée) ; un client qui tente une action de prestataire reçoit **403** `ADMIN_ONLY` (« Réservé au prestataire »).
+Authentification par cookie de session `sid`. Un non-membre d’une activité reçoit **404** sur toutes ses routes (son existence n’est jamais révélée) ; un client qui tente une action de prestataire reçoit **403** `ADMIN_ONLY` (« Réservé au prestataire »). Même grille pour une intervention : **404** si elle est invisible pour l’utilisateur (autre client, non-membre, client retiré de l’activité), **403** si le client de l’intervention tente une action de prestataire.
 
 - **Compte** : `POST /api/register` `{email, name, password, phone?}` · `POST /api/login` · `POST /api/logout` · `GET /api/me` → `{user: {id, email, name, phone} | null, activities: [{id, name, role: 'owner'|'client', owner_name, default_rate*, invite_code*, members_count*}]}` (`*` : prestataire seulement).
 - **Activités** : `POST /api/activities` `{name, default_rate?}` (nom de 2 à 60 caractères, tarif ≥ 0, 25 par défaut) · `GET /api/activities/:aid` · `PATCH /api/activities/:aid` `{name?, default_rate?}` · `POST /api/activities/:aid/invite/regenerate` → `{invite_code}` · `GET /api/activities/:aid/members` → `[{id, name, email, phone, role, joined_at}]` · `DELETE /api/activities/:aid/members/:userId` (le prestataire ne peut pas être retiré).

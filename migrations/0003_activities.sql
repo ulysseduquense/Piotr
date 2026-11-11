@@ -2,8 +2,8 @@
 -- par un lien d'invitation (invite_code). Calendrier, indisponibilités, réservations et tarif sont rattachés à une activité.
 --
 -- Migration des données : chaque utilisateur « admin » reçoit une activité à son nom (tarif = réglage default_rate, sinon 25) ;
--- les autres utilisateurs deviennent clients de l'activité du premier admin, qui reçoit aussi toutes les réservations et
--- indisponibilités existantes. La table settings et la colonne users.role disparaissent une fois exploitées.
+-- tous les autres utilisateurs (un éventuel second admin compris, qui garde ainsi la vue sur ses propres réservations) deviennent
+-- clients de l'activité du premier admin, qui reçoit aussi toutes les réservations et indisponibilités existantes. La table settings et la colonne users.role disparaissent une fois exploitées.
 --
 -- Reconstruction de bookings et unavailabilities (SQLite n'ajoute pas de colonne NOT NULL + clé étrangère par ALTER TABLE).
 -- D1 applique les clés étrangères et exécute la migration dans une transaction, où « PRAGMA foreign_keys=OFF » est sans
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS memberships (
 CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 
 -- 2. Une activité par admin (aucun admin → rien), code d'invitation de 20 caractères hexadécimaux, puis les adhésions :
---    l'admin est prestataire de son activité, tous les autres utilisateurs sont clients de l'activité du premier admin.
+--    l'admin est prestataire de son activité, tous les autres utilisateurs (autres admins compris) sont clients de l'activité du premier admin.
 INSERT INTO activities(owner_id, name, invite_code, default_rate)
   SELECT u.id, u.name, lower(hex(randomblob(10))),
     COALESCE((SELECT CAST(value AS REAL) FROM settings WHERE key='default_rate'), 25)
@@ -34,7 +34,7 @@ INSERT INTO activities(owner_id, name, invite_code, default_rate)
 INSERT OR IGNORE INTO memberships(activity_id, user_id, role) SELECT id, owner_id, 'owner' FROM activities;
 INSERT OR IGNORE INTO memberships(activity_id, user_id, role)
   SELECT (SELECT id FROM activities WHERE owner_id=(SELECT MIN(id) FROM users WHERE role='admin')), u.id, 'client'
-  FROM users u WHERE u.role<>'admin' AND EXISTS (SELECT 1 FROM users WHERE role='admin');
+  FROM users u WHERE u.id<>(SELECT MIN(id) FROM users WHERE role='admin') AND EXISTS (SELECT 1 FROM users WHERE role='admin');
 
 -- 3. Tables filles de bookings mises en transit (sans contraintes), puis supprimées : photos d'abord, sinon DROP TABLE
 --    expenses mettrait photos.expense_id à NULL (ON DELETE SET NULL).
