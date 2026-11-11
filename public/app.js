@@ -357,7 +357,7 @@ function drawActivities() {
     <button type="button" class="item" data-aid="${a.id}" aria-current="${a.id === act?.id}">
       <div class="item-main">
         <div class="item-title">${esc(a.name)}</div>
-        <div class="item-sub">${a.role === 'owner' ? t('acts.owner_sub', { count: Math.max(0, (a.members_count || 1) - 1) }) : t('acts.client_sub', { name: a.owner_name })}</div>
+        <div class="item-sub">${a.role === 'owner' ? t('acts.owner_sub', { count: Math.max(0, (a.members_count || 1) - 1) }) : t('acts.client_sub', { name: esc(a.owner_name) })}</div>
       </div>
       <div class="item-side">${roleTag(a.role)}</div>
     </button>`).join('')}</div>` : `<p class="empty">${t('acts.empty')}</p>`;
@@ -888,7 +888,22 @@ function drawAdmin() {
   if (document.activeElement?.form !== f) { f.elements.name.value = act.name; f.elements.default_rate.value = act.default_rate; }
   $('#inviteLink').value = inviteURL(act.invite_code);
   $('#shareBtn').hidden = !navigator.share;
-  $('#regenZone').innerHTML = '';
+  drawRegen();
+}
+// Confirmation en ligne de « Régénérer le lien » (conservée au changement de langue, retraduite).
+let regenOpen = false;
+function drawRegen() {
+  const zone = $('#regenZone');
+  if (!regenOpen) { zone.innerHTML = ''; return; }
+  zone.innerHTML = `<span class="hint">${t('admin.invite.regenerate_confirm')}</span>
+    <button type="button" class="btn sm" id="regenYes">${t('admin.invite.regenerate_yes')}</button>
+    <button type="button" class="btn ghost sm" id="regenNo">${t('confirm.no')}</button>`;
+  $('#regenNo').onclick = () => { regenOpen = false; drawRegen(); };
+  $('#regenYes').onclick = async () => {
+    $('#regenYes').disabled = true;
+    try { const r = await api(apiAct('/invite/regenerate'), { method: 'POST' }); act.invite_code = r.invite_code; regenOpen = false; drawAdmin(); toast('toast.link_regenerated'); }
+    catch (err) { toastErr(err); regenOpen = false; drawRegen(); }
+  };
 }
 function drawMembers() {
   const clients = membersCache?.filter(m => m.role === 'client'); if (!clients) return;
@@ -943,17 +958,7 @@ $('#shareBtn').onclick = async () => {
   try { await navigator.share({ title: t('app.title'), text: t('admin.invite.share_text', { owner: me.name, activity: act.name }), url: inviteURL(act.invite_code) }); }
   catch { /* partage annulé */ }
 };
-$('#regenBtn').onclick = () => {
-  $('#regenZone').innerHTML = `<span class="hint">${t('admin.invite.regenerate_confirm')}</span>
-    <button type="button" class="btn sm" id="regenYes">${t('admin.invite.regenerate_yes')}</button>
-    <button type="button" class="btn ghost sm" id="regenNo">${t('confirm.no')}</button>`;
-  $('#regenNo').onclick = () => { $('#regenZone').innerHTML = ''; };
-  $('#regenYes').onclick = async () => {
-    $('#regenYes').disabled = true;
-    try { const r = await api(apiAct('/invite/regenerate'), { method: 'POST' }); act.invite_code = r.invite_code; drawAdmin(); toast('toast.link_regenerated'); }
-    catch (err) { toastErr(err); $('#regenZone').innerHTML = ''; }
-  };
-};
+$('#regenBtn').onclick = () => { regenOpen = true; drawRegen(); $('#regenYes').focus(); };
 
 applyLang();
 boot();

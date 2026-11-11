@@ -75,6 +75,9 @@ img { max-width: 100%; }
 .act-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; max-width: 100%; padding: 0 8px; margin-left: -8px; border-radius: 6px; color: var(--ink); }
 .act-btn svg { color: var(--muted); flex: none; }
 .act-btn[aria-expanded="true"] { background: var(--soft); }
+/* Une seule activité : son nom en texte simple (ouvre « Mes activités » sans en avoir l'air). */
+.act-btn.single { cursor: default; }
+.act-btn.single:hover { background: transparent; cursor: pointer; }
 .act-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
 .menu {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; display: grid; gap: 2px;
